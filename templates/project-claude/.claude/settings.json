@@ -1,0 +1,49 @@
+{
+  "enabledPlugins": {
+    "dimi@dimi-skills": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show*)",
+      "Bash(git branch*)",
+      "Bash(git fetch*)",
+      "Bash(git merge-base*)",
+      "Bash(git rev-parse*)",
+      "Bash(git ls-files*)",
+      "Bash(git check-ignore*)",
+      "Bash(gh pr view*)",
+      "Bash(gh pr checks*)",
+      "Bash(gh pr diff*)",
+      "Bash(gh run view*)",
+      "Bash(pnpm lint*)",
+      "Bash(pnpm typecheck*)",
+      "Bash(pnpm test*)",
+      "Bash(pnpm --filter *)",
+      "Bash(pnpm exec tsc*)",
+      "Bash(pnpm exec eslint*)",
+      "Bash(pnpm exec prettier*)",
+      "Bash(pnpm exec playwright test*)",
+      "Bash(ruff *)",
+      "Bash(mypy *)",
+      "Bash(pytest *)",
+      "Bash(python -m pytest*)",
+      "Read(**)",
+      "Edit(apps/**)",
+      "Edit(services/**)",
+      "Edit(packages/**)"
+    ],
+    "deny": [
+      "Agent(fork)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git commit --no-verify*)",
+      "Bash(git push --no-verify*)",
+      "Read(.env*)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)"
+    ]
+  }
+}
