@@ -6,7 +6,7 @@ A Claude Code plugin marketplace with one plugin, `dimi`: a reviewer-grade devel
 
 | Half | Skills | Also |
 | --- | --- | --- |
-| **Development loop** | `plan-from-ticket`, `ui-states-review`, `tidy`, `pr-self-review` (+ `pr-correctness-scalability-review`, `pr-security-data-review`), `commit-push-pr`, `address-review`, `compound`, `agent-tool-design`, `agent-bootstrap` | 5 agents (`explore`, `reviewer`, `verifier`, `spec-writer`, `implementer`); 4 hooks (format on edit, Stop gate, Bash guard, session banner) |
+| **Development loop** | `grill-me`, `plan-from-ticket`, `ui-states-review`, `tidy`, `pr-self-review` (+ `pr-correctness-scalability-review`, `pr-security-data-review`), `commit-push-pr`, `address-review`, `compound`, `agent-tool-design`, `agent-bootstrap` | 5 agents (`explore`, `reviewer`, `verifier`, `spec-writer`, `implementer`); 4 hooks (format on edit, Stop gate, Bash guard, session banner) |
 | **Agent engineering** | `harness-reference`, `review-agent`, `harden-mcp`, `client-profile`, `refresh-harness` | reference library with "as of" dates; rubrics with tested fix patterns |
 
 They compose: `pr-self-review` calls `review-agent`/`harden-mcp` when a diff touches agent or MCP code; `agent-bootstrap` reads `harness-reference`; every skill honours `.claude/fde-client-profile.md`. Details: [plugins/dimi/README.md](plugins/dimi/README.md) and [docs/guide.md](docs/guide.md).
@@ -39,7 +39,7 @@ Install at **user** scope by default. Use **project** scope in team repositories
 ## Using it on a repository
 
 1. Install at project scope and copy [`templates/project-claude/`](templates/project-claude/README.md) into the repo (permissions, `enabledPlugins`, starter `.claude/rules/`, `CLAUDE.md` snippet). Set the plugin options: `/plugin` → dimi → **Configure options** (ticket regex, default branch, typecheck script, Python lint command, local checks line).
-2. Per ticket: `/dimi:plan-from-ticket` → build → `/dimi:ui-states-review` (UI) → `/dimi:tidy` → `/dimi:pr-self-review` → `/dimi:commit-push-pr` → paste the review into `/dimi:address-review` → `/dimi:compound`.
+2. Per ticket: `/dimi:grill-me` (optional, pressure-test the idea) → `/dimi:plan-from-ticket` → build → `/dimi:ui-states-review` (UI) → `/dimi:tidy` → `/dimi:pr-self-review` → `/dimi:commit-push-pr` → paste the review into `/dimi:address-review` → `/dimi:compound`.
 3. The hooks run on their own: format on edit, Stop gate, Bash guard, session banner. If Claude feels slow or several shells appear, read [docs/guide.md](docs/guide.md) → "If Claude feels slow".
 
 ## Using it on a client engagement
