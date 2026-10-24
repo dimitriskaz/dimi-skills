@@ -1,0 +1,80 @@
+{
+  "name": "dimi",
+  "version": "1.0.0",
+  "description": "Dimi's engineering toolkit for Claude Code. A reviewer-grade development loop (plan from a ticket, state-complete UI, pre-commit self-review, ship, address review, compound learnings into rules) with hooks and agents, plus forward-deployed engineering for LLM agents (harness reference, production-readiness review, MCP hardening, client profiles, fact refresh).",
+  "author": {
+    "name": "dimitriskaz",
+    "url": "https://github.com/dimitriskaz"
+  },
+  "repository": "https://github.com/dimitriskaz/dimi-skills",
+  "keywords": [
+    "agent-tools",
+    "agentic-harness",
+    "agents",
+    "code-review",
+    "compounding",
+    "evals",
+    "fde",
+    "hooks",
+    "mcp",
+    "observability",
+    "planning",
+    "pre-commit",
+    "rag",
+    "security",
+    "subagents",
+    "ui-states"
+  ],
+  "userConfig": {
+    "ticket_regex": {
+      "type": "string",
+      "title": "Ticket key regex",
+      "description": "Regex a ticket key must match in branch names and commit messages, e.g. PROJ-[0-9]+ or ABC-[0-9]+. Used by the Bash guard and the session banner."
+    },
+    "default_branch": {
+      "type": "string",
+      "title": "Default branch",
+      "description": "The branch work is diffed against and may never be pushed to directly (default: main)."
+    },
+    "protected_branches": {
+      "type": "string",
+      "title": "Protected branches",
+      "description": "Pipe-separated branch names the Bash guard refuses to push to (default: main|master|production)."
+    },
+    "typecheck_script": {
+      "type": "string",
+      "title": "Typecheck script name",
+      "description": "package.json script run per touched package by the Stop gate (default: typecheck). Leave empty to disable the typecheck gate."
+    },
+    "typecheck_fallback": {
+      "type": "string",
+      "title": "Whole-repo typecheck fallback",
+      "description": "Command run when no touched package has the script, e.g. pnpm exec tsc -b. Prefer incremental. Empty = no fallback."
+    },
+    "typecheck_budget_s": {
+      "type": "string",
+      "title": "Typecheck budget (seconds)",
+      "description": "Past this the Stop gate asks Claude once to run the typecheck scoped, then stops blocking (default: 150)."
+    },
+    "py_lint_cmd": {
+      "type": "string",
+      "title": "Python lint command",
+      "description": "Run by the Stop gate when Python files matching the Python path regex changed, e.g. ruff check services/agent-service (default: ruff check .)."
+    },
+    "py_dir_regex": {
+      "type": "string",
+      "title": "Python path regex",
+      "description": "Changed paths matching this trigger the Python lint (default: \\.py$, i.e. any Python file)."
+    },
+    "local_checks": {
+      "type": "string",
+      "title": "Local checks (display)",
+      "description": "One line listing the repo's check commands, shown in the session banner so Claude never guesses them."
+    },
+    "eslint_fix_on_edit": {
+      "type": "string",
+      "title": "Run eslint --fix on each edit",
+      "description": "1 (default) runs eslint --fix on the edited TS/JS file; 0 skips it (type-aware eslint configs can take seconds per file)."
+    }
+  }
+}

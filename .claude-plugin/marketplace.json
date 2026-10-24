@@ -1,0 +1,34 @@
+{
+  "name": "dimi-skills",
+  "description": "Dimi's Claude Code plugin: a reviewer-grade development loop with hooks and agents, and forward-deployed engineering for LLM agents.",
+  "owner": {
+    "name": "dimitriskaz",
+    "url": "https://github.com/dimitriskaz"
+  },
+  "plugins": [
+    {
+      "name": "dimi",
+      "source": "./plugins/dimi",
+      "description": "Dimi's engineering toolkit for Claude Code. A reviewer-grade development loop (plan from a ticket, state-complete UI, pre-commit self-review, ship, address review, compound learnings into rules) with hooks and agents, plus forward-deployed engineering for LLM agents (harness reference, production-readiness review, MCP hardening, client profiles, fact refresh).",
+      "category": "development",
+      "tags": [
+        "agent-tools",
+        "agentic-harness",
+        "agents",
+        "code-review",
+        "compounding",
+        "evals",
+        "fde",
+        "hooks",
+        "mcp",
+        "observability",
+        "planning",
+        "pre-commit",
+        "rag",
+        "security",
+        "subagents",
+        "ui-states"
+      ]
+    }
+  ]
+}

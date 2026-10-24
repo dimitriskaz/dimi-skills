@@ -1,0 +1,27 @@
+# --- Paste into your repo's CLAUDE.md (keep the whole file under ~200 lines) ---
+
+# Commands
+- Lint: `pnpm lint` · Typecheck: `pnpm typecheck` (or `pnpm --filter ./<pkg> typecheck`) · Unit: `pnpm test` · Python: `ruff check .`
+- Browser specs: `pnpm exec playwright test <spec>` — run only the specs you touched; the full suite is for CI.
+- Prefer the narrowest check that proves the change (one test file, one package) over the whole suite.
+
+# Speed
+- Run the narrowest check that proves the change: one test file, one package's typecheck. The full suite is CI's job.
+- Run heavy commands (tests, typecheck, builds) ONE AT A TIME. Never start two in parallel shells; they fight for CPU and both get slower.
+- Do not spawn agents or forks to run checks. Delegate reads to the `explore` subagent; delegate verification to `verifier`; everything else runs in this session.
+- Work on at most one task in this session. A second task is a `/clear` or a second worktree, not a side quest.
+
+# Workflow
+- Before a new ticket: `/dimi:plan-from-ticket <KEY>`. Before commit/push: `/dimi:pr-self-review`. UI changes: `/dimi:ui-states-review`. Before the self-review: `/dimi:tidy` (remove working notes). Ship: `/dimi:commit-push-pr`. After review: `/dimi:address-review`, then `/dimi:compound`.
+- Hooks already format on edit and gate typecheck/lint/debug-leftovers on Stop. If the Stop gate blocks, fix the cause; never add `as any`, `ts-ignore`, `eslint-disable`, `type: ignore` or skip a test to get past it.
+- Stage explicit paths. Never `git add -A` / `git add .` (the hook blocks it). Commit as `type(KEY): description`.
+- Delegate searches and log reading to the `explore` subagent; delegate review to `reviewer`; delegate "prove it works" to `verifier`.
+- After two failed corrections on the same issue, stop: `/clear`, then restate the task with what was learned.
+
+# When compacting
+- Always preserve: the ticket key, the plan file path, the full list of modified files, the local check commands, and any claim still to verify.
+
+# Gotchas (edit to taste)
+- Reads of result history grow forever: never add a whole-history read to a list/detail route or a page load; write a summary at collect time instead.
+- "Unread" is not "empty": a failed optional read must render as a named failure, never as "none exist".
+- Two implementations of one metric or rule are a bug; find the canonical one first.
