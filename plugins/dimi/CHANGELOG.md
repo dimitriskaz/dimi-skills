@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.0 - 2026-10-24
+
+- New skill `grill-me`: stress-test a plan, spec, ticket or design in conversation, one question at a time with a recommended answer each, depth-first through the problem, shape, identity, idempotency, scale, failure, trust, settings, proof, consumer and sequence branches. Reads `CLAUDE.md`, `.claude/rules/` and `.claude/fde-client-profile.md` before asking, delegates code reading to `explore`, and hands off to `plan-from-ticket` or `agent-bootstrap`.
+
 ## 1.0.0 - 2026-10-24
 
 First release of the unified `dimi` plugin (merges the former dev-workflow and fde-toolkit plugins into one).
