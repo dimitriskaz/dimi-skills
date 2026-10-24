@@ -57,6 +57,3 @@ Stop when no branch is unresolved: every meaningful decision made, dependencies 
 1. Summarise the resolved plan in a few tight lines, decisions first, then open follow-ups that were deliberately deferred.
 2. Offer the next step that fits: `/dimi:plan-from-ticket` to write it up as a plan with tests and commit steps; `/dimi:agent-bootstrap` if it is a new agent; or nothing, if the person is ready to build.
 3. If a real decision was made along the way, say where it should be recorded in this repository (an ADR, the ticket, the PR description, or `CLAUDE.md` via `/dimi:compound`). Do not write it anywhere unasked.
-
----
-*Forked from [mattpocock/skills](https://github.com/mattpocock/skills) (`grilling` + `grill-me`), merged into one self-contained skill and adapted to the dimi plugin.*
