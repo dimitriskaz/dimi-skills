@@ -6,7 +6,7 @@ A Claude Code plugin marketplace with one plugin, `dimi`: a reviewer-grade devel
 
 | Half | Skills | Also |
 | --- | --- | --- |
-| **Development loop** | `grill-me`, `plan-from-ticket`, `ui-states-review`, `tidy`, `pr-self-review` (+ `pr-correctness-scalability-review`, `pr-security-data-review`), `commit-push-pr`, `address-review`, `compound`, `agent-tool-design`, `agent-bootstrap` | 5 agents (`explore`, `reviewer`, `verifier`, `spec-writer`, `implementer`); 4 hooks (format on edit, Stop gate, Bash guard, session banner) |
+| **Development loop** | `grill-me`, `plan-from-ticket`, `ui-states-review`, `tidy`, `pr-self-review` (+ `pr-correctness-scalability-review`, `pr-security-data-review`), `commit-push-pr`, `address-review`, `compound`, `debug`, `walkthrough`, `release-notes`, `poc`, `port`, `agent-tool-design`, `agent-bootstrap`, `agent-evals` | 6 agents (`explore`, `reviewer`, `verifier`, `spec-writer`, `implementer`, `debugger`); 5 hooks (format on edit, Stop gate, Bash guard, session banner, session-end note) |
 | **Agent engineering** | `harness-reference`, `review-agent`, `harden-mcp`, `client-profile`, `refresh-harness` | reference library with "as of" dates; rubrics with tested fix patterns |
 
 They compose: `pr-self-review` calls `review-agent`/`harden-mcp` when a diff touches agent or MCP code; `agent-bootstrap` reads `harness-reference`; every skill honours `.claude/fde-client-profile.md`. Details: [plugins/dimi/README.md](plugins/dimi/README.md) and [docs/guide.md](docs/guide.md).
@@ -34,13 +34,17 @@ Install at **user** scope by default. Use **project** scope in team repositories
 
 - Third-party marketplaces do not auto-update by default. Turn it on in `/plugin` → Marketplaces, or update manually: `claude plugin marketplace update dimi-skills`, then `claude plugin update dimi@dimi-skills`.
 - The `version` in `plugins/dimi/.claude-plugin/plugin.json` controls updates: users stay on a version until it is bumped.
-- To pin to a release, add the marketplace with a ref: `/plugin marketplace add dimitriskaz/dimi-skills#v1.0.0`.
+- To pin to a release, add the marketplace with a ref: `/plugin marketplace add dimitriskaz/dimi-skills#v1.3.0`.
 
 ## Using it on a repository
 
 1. Install at project scope and copy [`templates/project-claude/`](templates/project-claude/README.md) into the repo (permissions, `enabledPlugins`, starter `.claude/rules/`, `CLAUDE.md` snippet). Set the plugin options: `/plugin` → dimi → **Configure options** (ticket regex, default branch, typecheck script, Python lint command, local checks line).
-2. Per ticket: `/dimi:grill-me` (optional, pressure-test the idea) → `/dimi:plan-from-ticket` → build → `/dimi:ui-states-review` (UI) → `/dimi:tidy` → `/dimi:pr-self-review` → `/dimi:commit-push-pr` → paste the review into `/dimi:address-review` → `/dimi:compound`.
-3. The hooks run on their own: format on edit, Stop gate, Bash guard, session banner. If Claude feels slow or several shells appear, read [docs/guide.md](docs/guide.md) → "If Claude feels slow".
+2. Per ticket: `/dimi:grill-me` (optional, pressure-test the idea) → `/dimi:plan-from-ticket` → build → `/dimi:ui-states-review` (UI) → `/dimi:tidy` → `/dimi:pr-self-review` → `/dimi:commit-push-pr` → paste the review into `/dimi:address-review` → `/dimi:compound`. Something red at any point: `/dimi:debug`.
+3. The hooks run on their own: format on edit, Stop gate, Bash guard, session banner, session-end note. If Claude feels slow or several shells appear, read [docs/guide.md](docs/guide.md) → "If Claude feels slow".
+
+## Demo branch and productionising (FDE)
+
+A long-lived demo branch is normal on an engagement. Keep it honest with `/dimi:poc`: `init` once, `mark` every shortcut (`DEMO-ONLY(<feature>): why`), `push` straight to the shared demo branch behind a light gate, `sync` the default branch in by merge (never rebase), `status` for what is demo-only, owed or ported. When a feature is ready for production, `/dimi:port <feature>` computes the real delta, builds a local integration worktree of main plus your open PRs, classifies each hunk as reuse / rewrite / drop, picks the base (main, or stacked one level on the PR it depends on) and hands the build to the normal loop. The marker can never reach main: `pr-self-review` fails on it.
 
 ## Using it on a client engagement
 
@@ -59,10 +63,10 @@ templates/project-claude/            per-repo starter: settings (permissions, en
 plugins/dimi/
   .claude-plugin/plugin.json         manifest with userConfig options; bump version per release
   CHANGELOG.md · README.md
-  skills/                            16 skills (11 development loop, 5 agent engineering)
-  agents/                            explore, reviewer, verifier, spec-writer, implementer
-  hooks/hooks.json                   4 hook registrations → scripts/
-  scripts/                           format-file, stop-check, guard-bash, session-context
+  skills/                            23 skills (18 development loop and agent building, 5 agent engineering)
+  agents/                            explore, reviewer, verifier, spec-writer, implementer, debugger
+  hooks/hooks.json                   5 hook registrations → scripts/
+  scripts/                           format-file, stop-check, guard-bash, session-context, session-end-note
 ```
 
 ## Maintaining

@@ -1,8 +1,8 @@
 # Agent frameworks and platforms (dated)
 
-> From *The Agentic Harness: A Layer-by-Layer Guide*, as of 24 October 2026. Principles here change slowly; versions, statuses, prices and dates do not. Verify dated facts against live docs (Context7, or the official pages listed in `sources.md`) before relying on them, or run `/dimi:refresh-harness`.
+> From *The Agentic Harness: A Layer-by-Layer Guide*, as of 24 October 2026. Principles here change slowly; versions, statuses, prices and dates do not. Verify dated facts against live docs (Context7, or the official pages listed in `sources.md`) before relying on them, or ask the author to run `/dimi:refresh-harness`.
 
-Versions and statuses below were read from package registries and official docs on 24 October 2026. Re-check before pinning or recommending.
+Versions and statuses below were read from package registries and official docs on 24 October 2026. Re-check before pinning or recommending. Code blocks in this file are fragments adapted from vendor docs, not runnable as written: names such as `chat_client`, `mock_llm`, `researcher`, `Crew`, `z` and `createStep` are assumed to be imported or defined elsewhere, and the APIs change with each release.
 
 Contents:
 

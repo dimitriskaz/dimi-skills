@@ -1,8 +1,8 @@
 # FDE client profile
 
-> Read by the dimi skills to tailor advice. Rules and constraints only: no secrets, credentials, personal data or customer records.
+> Read by the dimi skills to tailor advice. Rules and constraints only: no secrets, credentials, personal data or customer records. Name roles or teams, never people; name products, never endpoints.
 
-**Last updated:** TBD · **Owner:** TBD
+**Last updated:** TBD · **Review date:** TBD · **Owner (role or team, not a person):** TBD · **Committed to the client repo:** yes | no
 
 ## Engagement
 
@@ -20,7 +20,7 @@
 ## Models
 
 - Approved models and providers: TBD
-- Model gateway: TBD
+- Model gateway (product name, not endpoint): TBD
 - Pinned model versions: TBD
 - Self-hosted models (if any): TBD
 
@@ -31,13 +31,17 @@
 | Read-only internal | TBD | Runs automatically |
 | Outbound (anything reaching an external address) | TBD | TBD |
 | Reversible writes | TBD | TBD |
-| Irreversible or financial | TBD | Always needs approval by TBD |
+| Irreversible or financial | TBD | Always needs approval by TBD (role or team) |
 
-- Severity overrides for reviews: TBD
+**Severity overrides for reviews** (read by `review-agent` and `harden-mcp`, whose rubric or checklist ids go in the first column; severity is Critical, High, Medium or Low. `pr-self-review` maps them to its own scale: Critical or High → Blocker, Medium → Should fix, Low → Minor):
+
+| Check id | Severity | Reason |
+| --- | --- | --- |
+| TBD | TBD | TBD |
 
 ## Identity
 
-- Identity provider: TBD
+- Identity provider (product name): TBD
 - Delegated (on-behalf-of) access available: TBD
 - Agent identities (for autonomous runs): TBD
 
@@ -56,15 +60,15 @@
 
 ## Observability
 
-- Tracing and APM backend: TBD
+- Tracing and APM backend (product name): TBD
 - LLM observability tool: TBD
 - Prompt and output capture allowed: TBD
 
 ## Evaluation and acceptance
 
-- Eval set location and owner: TBD
+- Eval set location and owner (role or team): TBD
 - Acceptance thresholds: TBD
-- Who signs off: TBD
+- Who signs off (role or team, not a person): TBD
 
 ## Out of scope
 

@@ -1,6 +1,8 @@
 # MCP hardening patterns
 
-Patterns to cite in findings or adapt when fixing. Field names follow the MCP 2026-07-28 revision and the referenced RFCs; confirm against the current spec and the SDK version in use before shipping.
+> As of 25 October 2026. Field names follow the MCP 2026-07-28 revision and the referenced RFCs; confirm against the current spec and the SDK version in use before shipping, or ask the author to run `/dimi:refresh-harness`.
+
+Patterns to cite in findings or adapt when fixing. The Python examples need Python 3.9 or later (`Path.is_relative_to`, `tuple[str, ...]` hints) and were run on 3.13; patterns 2 and 3 use PyJWT 2.x and httpx; pattern 8 imports Starlette, and its middleware wiring is illustrative (only `origin_allowed` was run).
 
 Contents:
 
@@ -11,6 +13,8 @@ Contents:
 5. Success and error results
 6. SSRF guard for URL-fetching tools
 7. Confining file paths
+8. Localhost binding and Origin validation for local HTTP servers
+9. Bounding a tool result (page size, byte cap, cursor)
 
 ## 1. Protected Resource Metadata and 401 or 403 challenges
 
@@ -169,13 +173,17 @@ from urllib.parse import urlparse
 
 
 def assert_public_url(url: str, allowed_schemes: tuple[str, ...] = ("https",)) -> list[str]:
-    """Return the resolved public IPs, or raise ValueError."""
+    """Return the resolved public IPs, or raise ValueError (also for unresolvable hosts)."""
     parts = urlparse(url)
     if parts.scheme not in allowed_schemes or not parts.hostname:
         raise ValueError("URL scheme or host not allowed")
     port = parts.port or (443 if parts.scheme == "https" else 80)
+    try:
+        infos = socket.getaddrinfo(parts.hostname, port, proto=socket.IPPROTO_TCP)
+    except socket.gaierror as exc:
+        raise ValueError(f"{parts.hostname} does not resolve") from exc
     ips = []
-    for info in socket.getaddrinfo(parts.hostname, port, proto=socket.IPPROTO_TCP):
+    for info in infos:
         ip = ipaddress.ip_address(info[4][0])
         if not ip.is_global:
             raise ValueError(f"{parts.hostname} resolves to a non-public address")
@@ -183,7 +191,7 @@ def assert_public_url(url: str, allowed_schemes: tuple[str, ...] = ("https",)) -
     return ips
 ```
 
-To close the gap between checking and connecting (DNS rebinding), connect to one of the returned IPs with the original Host header, or route all fetches through an egress proxy that enforces the same rule. An allow-list of domains is stronger still when the use case permits it.
+Tested against loopback, link-local (including the cloud metadata address), RFC 1918, 100.64/10, hex-encoded hosts, `[::1]` and IPv4-mapped IPv6 (`::ffff:127.0.0.1`): all raise. To close the gap between checking and connecting (DNS rebinding), connect to one of the returned IPs with the original Host header, or route all fetches through an egress proxy that enforces the same rule. An allowlist of domains is stronger still when the use case permits it.
 
 ## 7. Confining file paths
 
@@ -199,4 +207,77 @@ def confine(root: Path, user_path: str) -> Path:
     return target
 ```
 
-`resolve()` follows symlinks, so a link pointing outside the root is rejected too.
+`resolve()` follows symlinks, so a link pointing outside the root is rejected too. Tested: `../x`, `/etc/passwd` and `link-to-/etc/passwd` raise; `sub/../ok.txt` and `""` (the root itself) pass.
+
+## 8. Localhost binding and Origin validation for local HTTP servers
+
+A local Streamable HTTP server must listen on the loopback interface only and reject requests whose `Origin` is not itself local, or a web page can reach it through DNS rebinding. Starlette or FastAPI example:
+
+```python
+from typing import Optional
+from urllib.parse import urlsplit
+
+from starlette.requests import Request
+from starlette.responses import JSONResponse
+
+LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
+
+
+def origin_allowed(origin: Optional[str]) -> bool:
+    """Absent Origin (non-browser client) passes; any present Origin must be a local http origin."""
+    if origin is None:
+        return True
+    parts = urlsplit(origin)
+    return parts.scheme == "http" and parts.hostname in LOCAL_HOSTS
+
+
+async def origin_guard(request: Request, call_next):
+    if not origin_allowed(request.headers.get("origin")):
+        return JSONResponse({"error": "forbidden origin"}, status_code=403)
+    return await call_next(request)
+
+
+# app.middleware("http")(origin_guard)
+# uvicorn.run(app, host="127.0.0.1", port=port)   # never "0.0.0.0" for a local server
+```
+
+`.hostname` strips the port and lower-cases the host, so `http://localhost:6274` is accepted while `http://evil.example`, `null`, `http://localhost.evil.example` and `https://localhost` (not an `http` origin) are not (`origin_allowed` tested on those inputs; the middleware wiring is illustrative). Bind with `host="127.0.0.1"` (or `::1`), never `0.0.0.0`.
+
+## 9. Bounding a tool result (page size, byte cap, cursor)
+
+Cap the number of items, cap the serialised size, and tell the model when either cap was hit:
+
+```python
+import json
+
+MAX_ITEMS = 50
+MAX_BYTES = 60_000  # well under host caps; Claude Code truncates results at about 25,000 tokens
+
+
+def bounded_result(items: list[dict], cursor_for) -> dict:
+    """Return at most MAX_ITEMS items and at most MAX_BYTES of JSON, with a cursor when truncated.
+
+    If the first item alone exceeds MAX_BYTES, return an error result whose cursor points past it,
+    so the model can skip the oversized item instead of hitting an empty page with no cursor.
+    """
+    page = items[:MAX_ITEMS]
+    truncated = len(items) > MAX_ITEMS
+    while page and len(json.dumps({"items": page}).encode()) > MAX_BYTES:
+        page = page[:-1]
+        truncated = True
+    if not page and items:
+        return {
+            "isError": True,
+            "code": "item_too_large",
+            "items": [],
+            "truncated": True,
+            "next_cursor": cursor_for(items[0]),
+        }
+    return {
+        "items": page,
+        "truncated": truncated,
+        "next_cursor": cursor_for(page[-1]) if truncated and page else None,
+    }
+```
+
+`cursor_for` turns the last returned item into an opaque, user-bound cursor (for example a signed `(user, last_id)` pair), so the next call cannot be replayed by another user. Declare `truncated` and `next_cursor` in `outputSchema` (pattern 4) and mention the cap in the description. Tested: 10 items pass untouched; 51 items return 50 with a cursor; 40 items of 5 KB return 11 under the byte cap with a cursor; a single 70 KB item returns the `item_too_large` error with a cursor past it; an empty list returns no cursor and no error.

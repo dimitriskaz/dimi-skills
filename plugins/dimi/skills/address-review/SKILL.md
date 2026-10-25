@@ -1,15 +1,17 @@
 ---
 name: address-review
-description: Work through a colleague's review of your change — pasted comments or an attached review report — by verifying each point against the code, fixing what is right, pushing back with evidence on what is not, validating with pr-self-review, and drafting replies for you to paste back.
-argument-hint: "[paste the review comments or attach the report]"
+description: Work through a colleague's review of your change — pasted comments, a PR number or an attached review report — by verifying each point against the code, fixing what is right, pushing back with evidence on what is not, validating with pr-self-review, and drafting replies for you to paste back.
+argument-hint: "[#pr | paste the review comments or attach the report]"
 disable-model-invocation: true
 ---
 
 # Address a review
 
-Sits between `pr-self-review` (before the review) and `compound` (after it). Triggers: `/address-review` with the comments pasted or a report attached; "work through this review"; "my colleague found these, fix them".
+Sits between `pr-self-review` (before the review) and `compound` (after it). Triggers: `/dimi:address-review` with the comments pasted, a report attached, or a PR number (`#42`); "work through this review"; "my colleague found these, fix them".
 
-Input is whatever you give it: pasted GitHub comments, an exported review report (HTML/Markdown/PDF), a Slack thread, a numbered findings list. Nothing is fetched and nothing is posted. You paste the replies back yourself.
+Input is whatever you give it: pasted GitHub comments, an exported review report (HTML/Markdown/PDF), a Slack thread, a numbered findings list — or a PR number, in which case the comments are fetched read-only (`gh pr view <n> --comments` and `gh api repos/{owner}/{repo}/pulls/<n>/comments` for inline review comments). Nothing is posted. You paste the replies back yourself.
+
+`$OUT` is the session's scratchpad directory if it gives one (set `OUT=<scratchpad path>` first), else `$TOP/../address-review-<repo>/` next to the checkout — absolute, never inside the repo — with `TOP=$(git rev-parse --show-toplevel)` and `REPO=$(basename "$TOP")`.
 
 Stance: the reviewer is a colleague, not an oracle. **Every point is verified against the code before anything is changed**, and every point gets a disposition and a reply. Nothing is fixed silently, nothing is ignored silently.
 
@@ -23,6 +25,8 @@ id | reviewer's severity (if any) | path:line (if cited) | claim in one line | k
 `kind`: **defect** (code is wrong) · **design** (approach should change) · **question** (needs an answer, not a change) · **nit** (style, naming) · **scope** (beyond the ticket) · **process** (tests, evidence, PR hygiene).
 
 If the input is a structured report (numbered findings with severities and confidence), keep its ids and severities so replies can reference them. If a comment cites a line that has since moved, map it to the current code and note that in the reply.
+
+Write the worklist to `$OUT/review-worklist.md` in the `pr-self-review` interchange format (`${CLAUDE_PLUGIN_ROOT}/skills/pr-self-review/SKILL.md` §7) with ids `REV-1`, `REV-2`, …, and copy it beside the latest self-review report: `LATEST="$TOP/../self-review-$REPO/LATEST"` (defined in `${CLAUDE_PLUGIN_ROOT}/skills/pr-self-review/references/diff-and-policy.md` §4) holds that report's absolute path, so `[ -f "$(cat "$LATEST")" ] && cp "$OUT/review-worklist.md" "$(dirname "$(cat "$LATEST")")/"`. `pr-self-review` re-run mode is keyed on `$LATEST` and re-checks every row it finds there.
 
 ## 2. Verify every claim before touching code
 
@@ -49,13 +53,13 @@ Reviewer's Blockers first, then Should-fix, then the rest. If the author is pres
 
 - One commit per root cause: `type(KEY): <what>`, body line `Addresses review: <ids>`. Stage explicit paths.
 - For every fix, add or extend **the test that would fail without it**; the reviewer's comment is that test's description.
-- Follow `.claude/rules/` and the canonical patterns in the repo. A review fix is not a licence for a quick hack; no escape hatches.
+- Follow `.claude/rules/` and the canonical patterns in the repo. A review fix is not a licence for a quick hack; no escape hatches. Do not annotate fixes in code (`// per review`, `// reviewer asked`): provenance goes in the commit body; if any slipped in, ask the author to run `/dimi:tidy`, or follow `${CLAUDE_PLUGIN_ROOT}/skills/tidy/SKILL.md` §1–4 inline.
 - Append commits; do not rebase, squash or force-push mid-review unless the team's convention says to. Ask if unsure.
 - Run the narrowest check after each fix, then the touched packages' lint/typecheck/tests.
 
 ## 5. Validate
 
-Run `pr-self-review` (local mode, re-run mode). It must show every "Fix now" row as `Fixed` with its commit and pinning test, no new Blocker, and a green compliance gate. If the self-review finds something the reviewer did not, fix it in this round and mention it in the summary — reviewers appreciate not having to find it next time. Then push with `commit-push-pr` if you want (it refuses on open Blockers and never force-pushes).
+Run `/dimi:pr-self-review` (local mode; its re-run mode follows `$LATEST` to the last report and loads the `review-worklist.md` beside it). It must show every `REV-n` "Fix now" row as `Fixed` with its commit and pinning test, no new Blocker, and a green compliance gate. If the self-review finds something the reviewer did not, fix it in this round and mention it in the summary — reviewers appreciate not having to find it next time. Then push with `/dimi:commit-push-pr` if you want (it refuses on open Blockers and never force-pushes).
 
 ## 6. Draft the replies
 
@@ -69,7 +73,7 @@ Plus a **summary** for the PR: what changed by root cause, what was pushed back 
 
 ## 7. Compound
 
-The reviewer's comments are the best learning material you get. End by offering `/compound` with this worklist: confirmed defects become path-scoped rules; anything the reviewer caught that `pr-self-review` missed becomes an addition to the relevant checklist lens.
+The reviewer's comments are the best learning material you get. End by offering `/dimi:compound` (the author runs it) with this worklist: confirmed defects become path-scoped rules; anything the reviewer caught that `pr-self-review` missed becomes an addition to the relevant checklist lens.
 
 ## Output
 

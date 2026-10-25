@@ -7,7 +7,12 @@ description: "Security and data-handling review of a working-tree or PR diff for
 
 Stage 3 of `pr-self-review`; also usable alone ("security pass before I push", "is there PII in my changes"). Input: a diff file `$DIFF` (working tree against the base branch including untracked files, or a PR's own base...head) and the code readable as it is now. Output: findings in the `pr-self-review` interchange format (category `security` or `data-handling`) plus a **mandatory** `CHECKED_CLEAN:` list naming every section below that was examined with the one-line reason it is clean. If the repo has its own security-review skill, run it too against the same tree and include its result.
 
-If run alone, build the diff as `pr-correctness-scalability-review` does (merge-base diff plus `--no-index` diffs for untracked files).
+If run alone, resolve the options (substituted only in this file), then build the diff with §1 of `${CLAUDE_PLUGIN_ROOT}/skills/pr-self-review/references/diff-and-policy.md` (`$OUT` is the session's scratchpad directory if it gives one — set `OUT=<scratchpad path>` first — else `$TOP/../pr-security-data-review-<repo>/` next to the checkout, absolute; `$DIFF=$OUT/review.diff`; merge-base diff plus `--no-index` diffs for untracked files, sets `$BASE`):
+```bash
+TOP=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "not a git repository" >&2; exit 1; }
+REPO=$(basename "$TOP"); OUT=${OUT:-$TOP/../pr-security-data-review-$REPO}
+DB='${user_config.default_branch}'; case "$DB" in '$'*) DB='';; esac; [ -z "$DB" ] && DB=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||'); DB=${DB:-main}
+```
 
 **Confidence bar.** Report a security finding when you can show the path from an input an attacker or careless user controls to the effect. A missing defence with no reachable path is a `conventions` note, not a security finding. PLAUSIBLE when the path depends on deployment or vendor behaviour you cannot see; name the confirm step.
 
@@ -40,6 +45,7 @@ Everything below is checked against this list. A section with nothing in the lis
 - Replay/idempotency checks run **after** kind and ownership checks, not before.
 - Read visibility is a *deliberate* choice: a GET open to every tenant user that exposes approver names, allowlists or exception lists → "probably acceptable, confirm it is intended".
 - Authorization stays server-side; UI-only `disabled` flags are not authorization.
+- **Open redirect, CSRF and CORS**: redirect targets (`next`, `returnUrl`, `redirect_uri`) allowlisted or relative-only; state-changing routes on cookie auth carry a CSRF token or same-site check and never use GET; CORS never `*` with credentials, origins from a constant list. Grep: `grep -niE '^\+.*(redirect|returnUrl|next=|Access-Control-Allow-Origin|cors\(|credentials: ?true|SameSite)' $DIFF`.
 
 ### Input validation and request bounds
 - Verdict-affecting settings validated **server-side** for shape and range (`'abc'` for a percentage, non-list for a list, `min_pct=0`, `max_count=99999`). Unknown key → whole patch refused.
@@ -52,6 +58,8 @@ Everything below is checked against this list. A section with nothing in the lis
 - SQL or any vendor query DSL: parameterised values, enum-validated tokens, regex-validated identifiers, bounded integers; constants via `json.dumps`/parameters, never concatenated text. The data layer's filter compiler is the only path to the store.
 - **CSV/spreadsheet export**: values starting with `=`, `+`, `-`, `@`, tab or CR neutralised (prefix `'` and quote). Hostnames, titles, owners, test names are attacker-influenced.
 - **XSS**: no `dangerouslySetInnerHTML`/`innerHTML`/`v-html`; server-built strings rendered as text; URL params used only as map keys.
+- **OS command injection**: no user-, record- or model-sourced text in `subprocess(..., shell=True)`, `os.system`, `child_process.exec`/`execSync`, backtick or template-string shell commands; argument arrays with a fixed binary only. Grep: `grep -nE '^\+.*(shell=True|os\.system|child_process|execSync|\bexec\(|popen\()' $DIFF`.
+- **Unsafe deserialization**: no `pickle.loads`, `yaml.load` without `SafeLoader`, `marshal`, `eval`/`new Function` on data from outside the process; schema-validate JSON instead. Grep: `grep -nE '^\+.*(pickle\.loads?|yaml\.load\(|marshal\.|\beval\(|new Function\()' $DIFF`.
 - **Prompt injection**: record/connector text reaches the model only as tool results; model output re-validated and needs human Accept; no silent writes; system-prompt rules do not let the model assert facts it has not read ("test X covers this" when X is inactive).
 
 ### LLM and agent code (when the diff touches prompts, tools, agents or MCP)
@@ -73,7 +81,7 @@ Everything below is checked against this list. A section with nothing in the lis
 ### Secrets and configuration
 - Secrets and tokens: `repr=False`/redacted; never in logs, errors or exceptions; sent only to the token endpoint (tested); cached per session; single re-mint on 401.
 - Error envelopes carry status and path only, never bodies, query strings or vendor error text.
-- Fixtures use obvious placeholders (`demo-not-a-secret`, zero GUIDs). `.env*`, key files, exported tokens and local DB dumps are **never staged**.
+- Fixtures use obvious placeholders (`demo-not-a-secret`, zero GUIDs). `.env*`, key files, exported tokens, local DB dumps, `.claude/.cache/` (the hooks' cache dir) and Playwright auth state (`storageState`, `.auth/`) are **never staged**.
 - **Env flags and dev modes** (fixture replay, local credential-store defaults, mock providers): refused outside development **in code**, with the production value set by IaC, not a README. New env vars have a safe default when unset.
 - **Mock/stub/demo data** lives only in tests, e2e stubs and fixtures, never in `src`.
 
@@ -88,7 +96,7 @@ A product that handles personal data collects the minimum. For every projected f
 ### Customer data and identifiers in the repo
 - Customer names, their tooling, record ids, workbook content (catalogues, crosswalks, mapping rows "transcribed from" a customer), POC ticket keys baked into **dedupe keys or source refs** (unchangeable later without breaking dedupe).
 - Fixture organisations and controls that look real ("<Customer>, Inc.").
-- Design notes under policy-ignored paths that were force-added: `git diff --name-only --diff-filter=A $BASE | xargs -r git check-ignore -v`; also `git diff --cached --name-only | xargs -r git check-ignore -v` before commit.
+- Design notes under policy-ignored paths that were force-added: `git diff --name-only --diff-filter=A $BASE | xargs -r git check-ignore -v --no-index`; also `git diff --cached --name-only | xargs -r git check-ignore -v --no-index` before commit (without `--no-index`, tracked and staged paths are never reported).
 - Merged history is permanent → Blocker or Should fix, never Minor. Before commit is the cheapest moment to remove it; once pushed it needs a history rewrite.
 
 ### Defaults, tenant controls and audit
@@ -108,9 +116,11 @@ A product that handles personal data collects the minimum. For every projected f
 
 ## 3. Quick greps (read around every hit)
 ```bash
-# secrets — run first, over the diff and over untracked files
-grep -niE '^\+.*(secret|password|passwd|token|api[_-]?key|BEGIN (RSA|EC|OPENSSH|PRIVATE)|AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9]{20,})' $DIFF
-git ls-files --others --exclude-standard | grep -iE '(\.env|\.pem|\.key|\.p12|credentials|\.sqlite|\.dump|\.bak)$'
+# secrets — run first, over the diff and over untracked files (SECRET_RE is defined once in diff-and-policy.md §4; copy it verbatim)
+SECRET_RE='(-----BEGIN (RSA|EC|OPENSSH|DSA|PGP)? ?PRIVATE KEY|AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,}|xox[abprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{35}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}|(api[_-]?key|secret|password|passwd|token|private[_-]?key)[[:space:]]*[=:][[:space:]]*["'"'"']?[A-Za-z0-9/+_=-]{8,})'
+grep -niE "$SECRET_RE" "$DIFF" | sed -E 's/^(([^:]*:)?[0-9]+:[^=:]*[=:][[:space:]]*).{4,}$/\1<redacted>/' | cut -c1-140
+( cd "$TOP" && git ls-files --others --exclude-standard | grep -vE '(^|/)\.env(\.|$)|\.(pem|key|p12)$|storageState|\.auth/|^\.claude/\.cache/' | while IFS= read -r f; do grep -niHE "$SECRET_RE" "$f" 2>/dev/null; done ) | sed -E 's/^(([^:]*:)?[0-9]+:[^=:]*[=:][[:space:]]*).{4,}$/\1<redacted>/' | cut -c1-140
+git -C "$TOP" ls-files --others --exclude-standard | grep -iE '(^|/)\.env(\.|$)|(\.pem|\.key|\.p12|credentials|\.sqlite|\.dump|\.bak)$|storageState|\.auth/|^\.claude/\.cache/'   # state files: never staged, never dumped
 
 grep -nE '^\+.*(dangerouslySetInnerHTML|innerHTML|v-html)' $DIFF
 grep -nE '^\+.*(tenant_id|tenantId)' $DIFF | grep -vE 'session|claims|headers'       # tenant from where?
@@ -121,7 +131,7 @@ grep -nE '^\+.*(console\.(log|info|warn|error)|logger\.|logging\.|print\()' $DIF
 grep -niE '^\+.*(toCsv|\.csv|text/csv|xlsx)' $DIFF
 grep -niE '^\+.*(process\.env|os\.environ|getenv)' $DIFF                             # new flags and their defaults
 grep -niE '^\+.*(mock|stub|fake|demo)' $DIFF | grep -vE '(test|spec|fixture|e2e)s?/'   # mock data in src?
-grep -niE '<CUSTOMER_TERMS from the pr-self-review policy block>' $DIFF
+grep -niE '<CUSTOMER_TERMS from the Repo policy block in diff-and-policy.md>' $DIFF
 git diff --name-only $BASE | grep -E '(package-lock|yarn\.lock|pnpm-lock|poetry\.lock|requirements|pyproject)'
 ```
 
@@ -129,4 +139,4 @@ git diff --name-only $BASE | grep -E '(package-lock|yarn\.lock|pnpm-lock|poetry\
 Read-only allowlists pinned by tests; fixed hosts with no override; same-host pagination with an erroring cap; per-session token caches with `repr=False`; error envelopes with status and path only; projections that drop PII; no free-form query language; a config key deliberately not named `tenant_id`; writes only through the data layer with the tenant header; both propose and commit gated; ambiguous references refused; commits that take only a proposal id and write what the server stored; logs with keys and ids only; cross-tenant tests; dev modes refused in production by code.
 
 ## 5. Reporting
-Use the `pr-self-review` interchange format with category `security` or `data-handling`. Then `CHECKED_CLEAN:` — one line per section above that you examined (secrets in tree; tenant isolation; authorization; input validation and bounds; injection, naming the DSLs; SSRF and read-only enforcement; env flags and config; PII in logs; PII in outputs; customer data; force-adds; CSV/XSS; prompt injection; least privilege; defaults/tenant controls; audit; integrity; dependencies/infra) with the one-line reason. Never list a section you did not actually check; write "not checked — <why>" instead.
+Use the `pr-self-review` interchange format with category `security` or `data-handling`. Then `CHECKED_CLEAN:` — one line per section above that you examined (secrets in tree; tenant isolation; authorization; redirects/CSRF/CORS; input validation and bounds; injection, naming the DSLs; command injection; deserialization; SSRF and read-only enforcement; env flags and config; PII in logs; PII in outputs; customer data; force-adds; CSV/XSS; prompt injection; least privilege; defaults/tenant controls; audit; integrity; dependencies/infra) with the one-line reason. Never list a section you did not actually check; write "not checked — <why>" instead.

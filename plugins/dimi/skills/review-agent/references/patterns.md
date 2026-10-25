@@ -1,3 +1,5 @@
+> As of 25 October 2026. Re-verify the provider usage-field names in pattern 9 against each SDK's current response types before relying on them; the other patterns use only the standard library.
+
 # Fix patterns
 
 Framework-agnostic Python patterns to cite in review findings or adapt when fixing. They use only the standard library so they drop into any stack. For framework-specific wiring (where to hook these into LangGraph, Agent Framework, ADK, the OpenAI Agents SDK and so on), check the current docs for the installed version.
@@ -263,7 +265,7 @@ def normalise_usage(provider: str, usage: dict) -> dict:
         return {
             "uncached": usage.get("input_tokens", 0) - cached,
             "cache_read": cached,
-            "cache_write": usage.get("input_tokens_details", {}).get("cache_write_tokens", 0),
+            "cache_write": 0,  # no separate cache-write count is reported
             "output": usage.get("output_tokens", 0),
         }
     if provider == "gemini":

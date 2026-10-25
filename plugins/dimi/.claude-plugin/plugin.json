@@ -1,6 +1,6 @@
 {
   "name": "dimi",
-  "version": "1.1.0",
+  "version": "1.3.0",
   "description": "Dimi's engineering toolkit for Claude Code. A reviewer-grade development loop (plan from a ticket, state-complete UI, pre-commit self-review, ship, address review, compound learnings into rules) with hooks and agents, plus forward-deployed engineering for LLM agents (harness reference, production-readiness review, MCP hardening, client profiles, fact refresh).",
   "author": {
     "name": "dimitriskaz",
@@ -13,14 +13,21 @@
     "agents",
     "code-review",
     "compounding",
+    "debugging",
+    "demo-branch",
+    "documentation",
     "evals",
     "fde",
     "hooks",
     "mcp",
     "observability",
+    "onboarding",
     "planning",
+    "poc",
+    "porting",
     "pre-commit",
     "rag",
+    "release-notes",
     "security",
     "subagents",
     "ui-states"
@@ -29,22 +36,25 @@
     "ticket_regex": {
       "type": "string",
       "title": "Ticket key regex",
-      "description": "Regex a ticket key must match in branch names and commit messages, e.g. PROJ-[0-9]+ or ABC-[0-9]+. Used by the Bash guard and the session banner."
+      "description": "Regex a ticket key must match in branch names and commit messages, e.g. PROJ-[0-9]+. Used by the Bash guard, the session banner and the skills. Set to `none` for repos without ticket keys.",
+      "default": "[A-Z][A-Z0-9]+-[0-9]+"
     },
     "default_branch": {
       "type": "string",
       "title": "Default branch",
-      "description": "The branch work is diffed against and may never be pushed to directly (default: main)."
+      "description": "The branch work is diffed against and may never be pushed to directly. Leave empty to detect it from origin/HEAD (falls back to main)."
     },
     "protected_branches": {
       "type": "string",
       "title": "Protected branches",
-      "description": "Pipe-separated branch names the Bash guard refuses to push to (default: main|master|production)."
+      "description": "Pipe-separated branch names the Bash guard refuses to push to, delete or force-push; the default branch is always included.",
+      "default": "main|master|production"
     },
     "typecheck_script": {
       "type": "string",
       "title": "Typecheck script name",
-      "description": "package.json script run per touched package by the Stop gate (default: typecheck). Leave empty to disable the typecheck gate."
+      "description": "package.json script run per touched package by the Stop gate, with the package manager the repo uses (lockfile, then the packageManager field). Set to `none` to disable the typecheck gate.",
+      "default": "typecheck"
     },
     "typecheck_fallback": {
       "type": "string",
@@ -54,27 +64,42 @@
     "typecheck_budget_s": {
       "type": "string",
       "title": "Typecheck budget (seconds)",
-      "description": "Past this the Stop gate asks Claude once to run the typecheck scoped, then stops blocking (default: 150)."
+      "description": "Past this the Stop gate asks Claude once to run the typecheck scoped, then skips that package for the rest of the branch. Non-numeric values fall back to 150.",
+      "default": "150"
     },
     "py_lint_cmd": {
       "type": "string",
       "title": "Python lint command",
-      "description": "Run by the Stop gate when Python files matching the Python path regex changed, e.g. ruff check services/agent-service (default: ruff check .)."
+      "description": "Run by the Stop gate when Python files matching the Python path regex changed, e.g. ruff check services/agent-service. Skipped with a one-time warning when the tool is not installed. Set to `none` to disable.",
+      "default": "ruff check ."
     },
     "py_dir_regex": {
       "type": "string",
       "title": "Python path regex",
-      "description": "Changed paths matching this trigger the Python lint (default: \\.py$, i.e. any Python file)."
+      "description": "Changed Python files matching this regex trigger the Python lint (any Python file by default); use a directory prefix such as ^services/agent-service/ to scope it.",
+      "default": "\\.py$"
     },
     "local_checks": {
       "type": "string",
       "title": "Local checks (display)",
-      "description": "One line listing the repo's check commands, shown in the session banner so Claude never guesses them."
+      "description": "One line listing the repo's check commands, shown in the session banner and used by pr-self-review so Claude never guesses them."
     },
     "eslint_fix_on_edit": {
       "type": "string",
       "title": "Run eslint --fix on each edit",
-      "description": "1 (default) runs eslint --fix on the edited TS/JS file; 0 skips it (type-aware eslint configs can take seconds per file)."
+      "description": "1 (or true) runs eslint --fix on the edited TS/JS file; 0 (or false) skips it (type-aware eslint configs can take seconds per file).",
+      "default": "1"
+    },
+    "demo_branch": {
+      "type": "string",
+      "title": "Demo / POC branch",
+      "description": "Name of the long-lived demo branch (pushed to a shared remote; merge-only). Used by the poc and port skills, by commit-push-pr to refuse opening PRs from it, and by the Bash guard to block rebases on it. Leave empty if none."
+    },
+    "demo_marker": {
+      "type": "string",
+      "title": "Demo-only marker",
+      "description": "Comment marker for shortcuts that must never reach the default branch, written as MARKER(<feature>): <why>. pr-self-review and commit-push-pr fail a production diff containing it; port drops such hunks.",
+      "default": "DEMO-ONLY"
     }
   }
 }

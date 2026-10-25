@@ -6,13 +6,18 @@ argument-hint: "[component or page paths]"
 
 # UI states review
 
-Use before committing a UI change, or when `pr-self-review` meets a diff with substantial frontend work. Triggers: `/ui-states-review`, "review this screen", "check the states of this component", "is this page ready", "UX pass on my changes".
+Use before committing a UI change, or when `pr-self-review` meets a diff with substantial frontend work. Triggers: `/dimi:ui-states-review`, "review this screen", "check the states of this component", "is this page ready", "UX pass on my changes".
 
 This covers what the design skills do not: *behaviour under every state*. If the `design` plugin is installed: for a deep WCAG audit use `design:accessibility-review`; for copy `design:ux-copy`; for visual critique `design:design-critique`. This skill names the states, checks each is handled and truthful, and says which ones need a test.
 
 ## 0. Inputs
 
-- A diff (`$DIFF`, built as in `pr-self-review`) or a list of components/pages. Read each changed component **and** the hooks/loaders it uses; the states live in the loader, the symptoms in the component.
+- A diff (`$DIFF`, built with §1 of `${CLAUDE_PLUGIN_ROOT}/skills/pr-self-review/references/diff-and-policy.md` after the lines below; `$OUT` is the session's scratchpad directory if it gives one — set `OUT=<scratchpad path>` first — else `$TOP/../ui-states-review-<repo>/` next to the checkout, absolute; `$DIFF=$OUT/review.diff`) or a list of components/pages.
+  ```bash
+  TOP=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "not a git repository" >&2; exit 1; }
+  REPO=$(basename "$TOP"); OUT=${OUT:-$TOP/../ui-states-review-$REPO}
+  DB='${user_config.default_branch}'; case "$DB" in '$'*) DB='';; esac; [ -z "$DB" ] && DB=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||'); DB=${DB:-main}
+  ``` Read each changed component **and** the hooks/loaders it uses; the states live in the loader, the symptoms in the component.
 - If a browser tool or Playwright is available and the app runs locally, drive the real screen through the states below and take screenshots; otherwise reason from code and say so.
 
 ## 1. Inventory
@@ -88,7 +93,7 @@ Walk each action's state machine through success → partial → fail → retry-
 
 ## 9. Evidence
 
-List the Playwright specs that cover the risky rows of sections 2–3 — at minimum: unread (route failure) renders as a failure not as empty; 403 renders as no-access; partial success shows the written part; stale-version 409 closes the flow; a constrained field refuses malformed input. Real auth path, stable locators, no `.only`, evidence captured per repo rule.
+List the Playwright specs that cover the risky rows of sections 2–3 — at minimum: unread (route failure) renders as a failure not as empty; 403 renders as no-access; partial success shows the written part; stale-version 409 closes the flow; a constrained field refuses malformed input. Real auth path, stable locators, no `.only`, evidence captured per repo rule. Offer to hand this list to the `spec-writer` agent, which writes the specs and their evidence in the repo's existing style and reports the states it could not cover.
 
 ## Quick greps (read around every hit)
 ```bash

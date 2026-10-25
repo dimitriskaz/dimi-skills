@@ -8,20 +8,20 @@ allowed-tools: Read Grep Glob Write Edit Bash(git ls-files *)
 
 # Client engagement profile
 
-Engagement: $ARGUMENTS
+Engagement: $ARGUMENTS (if empty, ask for the engagement name first).
 
 Existing profile:
 
-!`cat .claude/fde-client-profile.md 2>/dev/null || echo "None yet."`
+!`cat "$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.claude/fde-client-profile.md" 2>/dev/null || echo "None yet."`
 
 Repository files:
 
-!`git ls-files 2>/dev/null | head -300`
+!`{ TOP=$(git rev-parse --show-toplevel 2>/dev/null) && git -C "$TOP" ls-files || echo "not a git repository"; } | head -300 || true`
 
 ## Steps
 
 1. **Start from the template** at `${CLAUDE_SKILL_DIR}/template.md`, or from the existing profile if there is one.
 2. **Fill what the repository already shows.** Infer cloud and regions from infrastructure code (Terraform, Bicep, CloudFormation, Helm), languages and frameworks from lockfiles, model IDs from config, and tracing backends from dependencies. Mark each inferred value "(inferred from <file>)".
-3. **Ask the user for the rest** in one short batch of questions: risk tiers and approval rules, data classes and residency, retention, zero-data-retention or regulated-data needs (HIPAA, PCI DSS), identity provider, approved models, acceptance criteria and deadlines. Leave anything unanswered as `TBD`.
-4. **Write** `.claude/fde-client-profile.md`. Show the user a short summary of what changed.
-5. **Remind the user** that the file is meant to be committed to the client repository for handover, so it must contain rules and constraints only: no secrets, credentials, personal data or customer records.
+3. **Ask the user for the rest** in one short batch of questions: risk tiers and approval rules, data classes and residency, retention, zero-data-retention or regulated-data needs (HIPAA, PCI DSS), identity provider, approved models, acceptance criteria and deadlines, and whether the file will be committed to the client repository. Leave anything unanswered as `TBD`.
+4. **Check the draft before writing it.** The file is committed to the client repository for handover, so it holds rules and constraints only: no secrets, credentials, personal data or customer records. Name roles or teams, never people; name products (gateway, identity provider, APM), never endpoints or hostnames. Scan the draft for key or token shapes (`AKIA`, `sk-`, `ghp_`, `Bearer `, `-----BEGIN`, `password`, `secret`, `token=`, long base64 or hex runs, email addresses) and remove any hit before going on. Fill `Last updated` with today and `Review date` with today plus three months.
+5. **Write** `.claude/fde-client-profile.md`. Show the user a short summary of what changed and repeat the "rules and constraints only" reminder.

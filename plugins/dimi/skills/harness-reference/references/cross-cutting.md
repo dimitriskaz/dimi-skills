@@ -1,6 +1,6 @@
 # Cross-cutting concerns
 
-> From *The Agentic Harness: A Layer-by-Layer Guide*, as of 24 October 2026. Principles here change slowly; versions, statuses, prices and dates do not. Verify dated facts against live docs (Context7, or the official pages listed in `sources.md`) before relying on them, or run `/dimi:refresh-harness`.
+> From *The Agentic Harness: A Layer-by-Layer Guide*, as of 24 October 2026. Principles here change slowly; versions, statuses, prices and dates do not. Verify dated facts against live docs (Context7, or the official pages listed in `sources.md`) before relying on them, or ask the author to run `/dimi:refresh-harness`.
 
 Contents:
 
@@ -24,9 +24,9 @@ Treat the model as an untrusted component: anything it reads can try to steer it
 | --- | --- | --- |
 | Direct prompt injection (jailbreak) | A user tells the agent to ignore its rules | Input classifiers; output checks; capability limits that hold even if the model complies |
 | Indirect prompt injection | Instructions hidden in a web page, email, PDF or tool result | Treat retrieved content as data; privilege separation (below) |
-| Data exfiltration | The agent embeds private data in a link, image URL, email or tool call to an attacker | Egress allow-lists; no rendering of untrusted URLs and images; approval on outbound actions |
+| Data exfiltration | The agent embeds private data in a link, image URL, email or tool call to an attacker | Egress allowlists; no rendering of untrusted URLs and images; approval on outbound actions |
 | Excessive agency | The agent deletes, pays or emails beyond what the task needed | Least-privilege tools; approval gates; budgets |
-| Tool and supply-chain compromise | A malicious MCP server or package | Allow-lists, version pinning, sandboxing (Part 2) |
+| Tool and supply-chain compromise | A malicious MCP server or package | Allowlists, version pinning, sandboxing (Part 2) |
 | Sensitive data disclosure | PII or secrets appear in answers or logs | PII and secret detection on outputs; redaction in logs |
 | Harmful or off-policy output | Toxic content, regulated advice, off-brand claims | Output classifiers; topic restrictions; grounding checks |
 | Denial of wallet | Loops or abusive users burn tokens | Rate limits; per-user and per-run budgets |
