@@ -6,7 +6,7 @@ argument-hint: "[ticket key or pasted ticket]"
 
 # Plan from ticket
 
-Use at the **start** of a ticket, before writing code. Triggers: `/plan-from-ticket PROJ-1234`, "plan this ticket", "before I start on…", a pasted ticket or user story, "how should I approach…".
+Use at the **start** of a ticket, before writing code. Triggers: `/dimi:plan-from-ticket PROJ-1234`, "plan this ticket", "before I start on…", a pasted ticket or user story, "how should I approach…".
 
 The plan applies the `pr-self-review` lenses *forward*: every question the reviewer will ask at the end is answered here first, when changing the answer costs nothing. Done well, `pr-self-review` at the end becomes a confirmation, not a discovery.
 
@@ -15,9 +15,9 @@ The plan applies the `pr-self-review` lenses *forward*: every question the revie
 - The ticket: key and text. If a Jira/Linear connector is available, fetch it (description, acceptance criteria, comments, linked tickets, attachments). Otherwise ask for a paste.
 - Repo rules: `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, ADRs (`docs/adr/**`, `docs/decisions/**`) that touch the area.
 - `.claude/fde-client-profile.md` if present: approved models and regions, risk tiers and approval rules, data classes and retention. These are constraints on the design, not suggestions.
-- The policy block and `SCALE` line from the `pr-self-review` skill (ticket format, forbidden paths, required tests, deletability of records, realistic tenant size). Read it; do not re-invent it.
+- The Repo policy block and `SCALE` line in `${CLAUDE_PLUGIN_ROOT}/skills/pr-self-review/references/diff-and-policy.md` §4 (ticket format, forbidden paths, required tests, deletability of records, realistic tenant size). Read it; do not re-invent it.
 
-Write the plan to `$OUT/plan-<ticket>.md`, where `$OUT` is **outside the repo** (scratchpad if given, else `../plans-<repo>/`). Check `FORBIDDEN_PATHS` before ever placing a design note inside the repo: in some repos design notes are policy-ignored and must never be force-added. If the repo has an ADR convention and the ticket makes an architectural choice, offer an ADR in that location as a separate step.
+Write the plan to `$OUT/plan-<ticket>.md`. `$OUT` is the session's scratchpad directory if it gives one, else `$(git rev-parse --show-toplevel)/../plan-from-ticket-<repo>/` next to the checkout (absolute, never inside the repo). Check `FORBIDDEN_PATHS` before ever placing a design note inside the repo: in some repos design notes are policy-ignored and must never be force-added. If the repo has an ADR convention and the ticket makes an architectural choice, offer an ADR in that location as a separate step.
 
 ## 1. Restate the problem
 

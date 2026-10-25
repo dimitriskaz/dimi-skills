@@ -50,8 +50,8 @@ To start a project that follows these defaults, run `/dimi:agent-bootstrap`: it 
 
 ## Facts that go stale
 
-Versions, statuses, prices, spec revisions and acquisitions in these files were correct on 24 October 2026. Before quoting one to a client or pinning a dependency:
+Each reference file carries its own "as of" note in its first line; when files disagree, quote the oldest date. Before quoting a version, status, price, spec revision or acquisition to a client, or pinning a dependency:
 
 - Check the live source: use the Context7 docs tools if available, otherwise the official pages listed in [sources.md](references/sources.md).
 - Prefer current official docs over these files for exact API signatures and parameter names.
-- To update the files themselves, run `/dimi:refresh-harness` from a checkout of the dimi-skills repository.
+- To update the files themselves, ask the author to run `/dimi:refresh-harness` from a checkout of the dimi-skills repository (it is not model-invocable).

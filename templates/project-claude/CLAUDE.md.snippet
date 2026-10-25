@@ -12,7 +12,7 @@
 - Work on at most one task in this session. A second task is a `/clear` or a second worktree, not a side quest.
 
 # Workflow
-- Before a new ticket: `/dimi:plan-from-ticket <KEY>`. Before commit/push: `/dimi:pr-self-review`. UI changes: `/dimi:ui-states-review`. Before the self-review: `/dimi:tidy` (remove working notes). Ship: `/dimi:commit-push-pr`. After review: `/dimi:address-review`, then `/dimi:compound`.
+- Before a new ticket: `/dimi:plan-from-ticket <KEY>`. Before commit/push: `/dimi:pr-self-review`. UI changes: `/dimi:ui-states-review`. Before the self-review: `/dimi:tidy` (remove working notes). Ship: `/dimi:commit-push-pr`. Something red: `/dimi:debug` (or the `debugger` agent for long hunts). Demo branch: `/dimi:poc` (mark, sync, push, status); demo → production: `/dimi:port`. After review: `/dimi:address-review`, then `/dimi:compound`.
 - Hooks already format on edit and gate typecheck/lint/debug-leftovers on Stop. If the Stop gate blocks, fix the cause; never add `as any`, `ts-ignore`, `eslint-disable`, `type: ignore` or skip a test to get past it.
 - Stage explicit paths. Never `git add -A` / `git add .` (the hook blocks it). Commit as `type(KEY): description`.
 - Delegate searches and log reading to the `explore` subagent; delegate review to `reviewer`; delegate "prove it works" to `verifier`.

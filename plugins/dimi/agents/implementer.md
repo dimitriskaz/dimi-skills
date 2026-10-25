@@ -5,7 +5,6 @@ tools: Read, Grep, Glob, Edit, Write, Bash
 model: opus
 effort: high
 isolation: worktree
-permissionMode: acceptEdits
 color: orange
 maxTurns: 120
 ---

@@ -6,7 +6,7 @@ argument-hint: "[tool name or description]"
 
 # Agent tool design
 
-Use when adding or changing a tool a model can call — an in-app assistant tool, an MCP tool, a function for a framework agent. Triggers: `/agent-tool-design`, "design a tool for the assistant", "add a tool that…", "review this tool", "the model should be able to…". For the MCP server plumbing itself use an MCP-builder skill if one is installed (e.g. `anthropic-skills:mcp-builder`); this skill is about the *contract* and its safety, whatever the transport.
+Use when adding or changing a tool a model can call — an in-app assistant tool, an MCP tool, a function for a framework agent. Triggers: `/dimi:agent-tool-design`, "design a tool for the assistant", "add a tool that…", "review this tool", "the model should be able to…". For the MCP server plumbing itself use an MCP-builder skill if one is installed (e.g. `anthropic-skills:mcp-builder`); this skill is about the *contract* and its safety, whatever the transport.
 
 ## 0. Start from the job, not the API
 
@@ -34,6 +34,8 @@ Use when adding or changing a tool a model can call — an in-app assistant tool
 
 **Error envelope**: `{status: 'error', code, retryable, hint}`. `hint` tells the model what to do ("use `list_x` first to get an id"). Never include response bodies, query strings, stack traces or vendor error text.
 
+**MCP mapping**: on an MCP server the output schema is the tool's `outputSchema`, the success payload goes in `structuredContent` (plus a text copy), and the error envelope is a result with `isError: true` whose text carries `code` and `hint`; JSON-RPC errors are for protocol problems only (see `${CLAUDE_PLUGIN_ROOT}/skills/harden-mcp/references/checklist.md`, D4 and D5).
+
 ## 2. Reads
 
 - Tenant-scoped from claims; the session or context is built per call and reset after; no module-level caches of credentials or tenant data.
@@ -49,8 +51,8 @@ Use when adding or changing a tool a model can call — an in-app assistant tool
 
 ## 4. Writes are proposals
 
-The model never writes directly:
-1. The tool **validates** the model's request (schema, registry of allowed types, whitelisted keys) and **stores the exact patch or pairs server-side** under a proposal id, bound to the tenant, the actor and the current version of the target.
+The model never writes directly unless the client profile permits direct writes for that action class:
+1. The tool **validates** the model's request (schema, registry of allowed types, allowlisted keys) and **stores the exact patch or pairs server-side** under a proposal id, bound to the tenant, the actor and the current version of the target.
 2. The tool returns the proposal id and a human-readable summary for a review card. It writes nothing.
 3. A person accepts. The commit route takes **only the proposal id**, re-checks tenant and kind *before* any replay check, re-validates against the stored version (refuse on stale), applies what the server stored — never anything from the browser or the model — and records the commit.
 4. Partial failure is not recorded as success; retry applies the rest; already-present items come back as `unchanged`.
@@ -58,7 +60,7 @@ The model never writes directly:
 
 Ambiguity is refused, not guessed: zero or several matches for a reference returns an error with a hint, never the first match.
 
-**Side-effect discipline for any tool that writes** (proposal or not):
+**Side-effect discipline for any tool that writes** (proposal, or a direct write where the client profile permits it):
 - **Idempotency key derived from the run**, e.g. `thread_id + step_id` or the tool-call id — never a `uuid4()`/`randomUUID()` minted inside a step that can re-run on retry or resume. If the target API has no idempotency support, check an outbox/dedup table keyed the same way before sending.
 - **Approval bound to the exact call**: store a hash of tool name + canonical arguments; execute only if the hash matches; single-use; expires; records the approver. Never re-generate arguments after approval.
 - **No side effect before an interrupt** in a step that re-runs from its start on resume (graph frameworks do this); put the write after the approval point or make it idempotent.
@@ -99,4 +101,4 @@ Outbound: hosts, allowlist, scopes
 Tests: schema · golden · proposal flow · injection · cross-tenant
 Evals: tasks and rubric
 ```
-Then the implementation skeleton in the repo's convention (or via an MCP-builder skill for MCP). Before committing, run `pr-security-data-review` on the diff; agent tools are where personal data and gate bypasses most often slip in. If the tool lives in an MCP server, run `/dimi:harden-mcp <path>` as well: it checks the server against the current MCP spec revision (OAuth 2.1 resource-server auth, audience validation, no token passthrough, SSRF, path confinement) and has tested fix patterns for each.
+Then the implementation skeleton in the repo's convention (or via an MCP-builder skill for MCP). Before committing, run `/dimi:pr-security-data-review` on the diff; agent tools are where personal data and gate bypasses most often slip in. If the tool lives in an MCP server, run `/dimi:harden-mcp <path>` as well: it checks the server against the current MCP spec revision (OAuth 2.1 resource-server auth, audience validation, no token passthrough, SSRF, path confinement) and has tested fix patterns for each.

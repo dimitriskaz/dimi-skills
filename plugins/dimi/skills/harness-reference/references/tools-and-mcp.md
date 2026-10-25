@@ -1,6 +1,6 @@
 # Tools layer: internal tools, external APIs and MCP
 
-> From *The Agentic Harness: A Layer-by-Layer Guide*, as of 24 October 2026. Principles here change slowly; versions, statuses, prices and dates do not. Verify dated facts against live docs (Context7, or the official pages listed in `sources.md`) before relying on them, or run `/dimi:refresh-harness`.
+> From *The Agentic Harness: A Layer-by-Layer Guide*, as of 24 October 2026. Principles here change slowly; versions, statuses, prices and dates do not. Verify dated facts against live docs (Context7, or the official pages listed in `sources.md`) before relying on them, or ask the author to run `/dimi:refresh-harness`.
 
 Contents:
 
@@ -95,7 +95,7 @@ Official extensions add capabilities outside the core ([MCP](https://modelcontex
 - **SSRF and local compromise**: block private IP ranges for servers that fetch URLs; show the full launch command and sandbox local servers.
 - **Supply chain**: malicious MCP packages have shipped on npm, such as postmark-mcp in September 2025 ([Cloud Security Alliance](https://labs.cloudsecurityalliance.org/research-rb/csa-whitepaper-mcp-security-tool-poisoning-20260506-csa-styl/)). OWASP now maintains an MCP Top 10, currently in beta ([OWASP](https://owasp.org/www-project-mcp-top-10/)).
 
-Mitigations that hold up: run only vetted servers from an internal allow-list, route remote MCP through a gateway that enforces auth, logging and rate limits, sandbox local servers, require approval for write tools, and log every tool call with its arguments. Real gateways include the open-source [Docker MCP Gateway](https://docs.docker.com/ai/mcp-gateway/), [Bedrock AgentCore Gateway](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway.html), [Cloudflare MCP Server Portals](https://developers.cloudflare.com/cloudflare-one/access-controls/ai-controls/mcp-portals), [Kong's MCP plugins](https://developer.konghq.com/mcp/), [Azure API Management](https://learn.microsoft.com/en-us/azure/api-management/mcp-server-overview) and [microsoft/mcp-gateway](https://github.com/microsoft/mcp-gateway) for Kubernetes.
+Mitigations that hold up: run only vetted servers from an internal allowlist, route remote MCP through a gateway that enforces auth, logging and rate limits, sandbox local servers, require approval for write tools, and log every tool call with its arguments. Real gateways include the open-source [Docker MCP Gateway](https://docs.docker.com/ai/mcp-gateway/), [Bedrock AgentCore Gateway](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway.html), [Cloudflare MCP Server Portals](https://developers.cloudflare.com/cloudflare-one/access-controls/ai-controls/mcp-portals), [Kong's MCP plugins](https://developer.konghq.com/mcp/), [Azure API Management](https://learn.microsoft.com/en-us/azure/api-management/mcp-server-overview) and [microsoft/mcp-gateway](https://github.com/microsoft/mcp-gateway) for Kubernetes.
 
 **Scaling to many tools**
 

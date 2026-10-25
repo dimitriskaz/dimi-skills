@@ -13,7 +13,12 @@ Triggers: `/dimi:tidy`, "clean up the comments", "remove the working notes", "ma
 
 ## 0. Scope
 
-Only lines **this change added or modified** (the working tree against the default branch, including untracked files), never the rest of the file — pre-existing comments are a separate conversation. Build the diff as `pr-self-review` does; work from its `+` lines. `$ARGUMENTS` narrows to paths.
+Only lines **this change added or modified** (the working tree against the default branch, including untracked files), never the rest of the file — pre-existing comments are a separate conversation. Resolve the options first (they are substituted only in this file), then build the diff with §1 of `${CLAUDE_PLUGIN_ROOT}/skills/pr-self-review/references/diff-and-policy.md` (`$OUT` is the session's scratchpad directory if it gives one — set `OUT=<scratchpad path>` before the lines below — else `$TOP/../tidy-<repo>/` next to the checkout, absolute; `$DIFF=$OUT/review.diff`); work from its `+` lines. `$ARGUMENTS` narrows to paths.
+```bash
+TOP=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "not a git repository" >&2; exit 1; }
+REPO=$(basename "$TOP"); OUT=${OUT:-$TOP/../tidy-$REPO}
+DB='${user_config.default_branch}'; case "$DB" in '$'*) DB='';; esac; [ -z "$DB" ] && DB=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||'); DB=${DB:-main}
+```
 
 Read `.claude/rules/repo-hygiene.md` and `CLAUDE.md` for the repo's comment conventions (docstring style, whether `TODO(KEY)` is allowed). If `.claude/fde-client-profile.md` exists, its client name is a term to remove.
 
@@ -22,14 +27,14 @@ Read `.claude/rules/repo-hygiene.md` and `CLAUDE.md` for the repo's comment conv
 Collect every added/changed instance of:
 - comments and docstrings (`//`, `/* */`, `#`, `"""`, `'''`, JSDoc, `<!-- -->`, YAML `#`);
 - string literals in logs, errors and test names (`describe`, `it`, `test(`), fixture names and identifiers that carry a ticket key, a customer, a person, or a date;
-- files that are working artefacts, not product: `PLAN.md`, `HANDOFF.md`, `NOTES.md`, `TODO.md`, `*.scratch.*`, review reports, exported chats, screenshots not under the repo's evidence convention.
+- files that are working artefacts, not product: `PLAN.md`, `HANDOFF.md`, `NOTES.md`, `TODO.md`, `*.scratch.*`, review reports, exported chats, screenshots not under the repo's evidence convention; `.claude/.cache/` (the hooks' cache dir) and Playwright auth state (`storageState`, `.auth/`) are never staged either.
 
-Quick greps over the `+` lines (confirm each by reading):
+Quick greps over the `+` lines (confirm each by reading; `TICKET_REGEX` and `CUSTOMER_TERMS` come from the Repo policy block in the file above):
 ```bash
 grep -nE '^\+.*(//|#|/\*|\*|"""|<!--)' $DIFF | grep -niE "(<TICKET_REGEX>|<CUSTOMER_TERMS>|as discussed|per the (ticket|workbook|customer|call|review)|for now|temporary|hack|quick fix|claude|assistant|session|step [0-9]|plan\.md|handoff|added (as part of|for|in)|updated (on|to)|changed (to|from)|20[0-9]{2}-[0-9]{2}-[0-9]{2}|see (above|below)|this (function|method|class|file) (does|is|handles|returns))"
 grep -nE '^\+\s*(//|#)\s*(const|let|var|def |class |if \(|for \(|return |import |export |[a-zA-Z_]+\(.*\);?\s*$)' $DIFF   # commented-out code
-grep -nE '^\+.*(console\.(log|debug)|print\(|logger\.debug|debugger|TODO|FIXME|XXX)' $DIFF
-git ls-files --others --exclude-standard | grep -iE '(plan|handoff|notes|todo|scratch|review|report|transcript)\.(md|txt)$'
+grep -nE '^\+.*(console\.(log|debug)|print\(|logger\.debug|debugger|DBG-[A-Za-z0-9_-]+|TODO|FIXME|XXX)' $DIFF   # DBG- probes are what the Stop hook blocks
+git -C "$TOP" ls-files --others --exclude-standard | grep -iE '(plan|handoff|notes|todo|scratch|review|report|transcript)\.(md|txt)$|^\.claude/\.cache/|storageState|\.auth/'
 ```
 
 ## 2. Classify every item into exactly one bucket
@@ -75,7 +80,7 @@ Rewritten: …   Deleted: …   Renamed: …   Untracked/moved: …
 Behaviour-only check: typecheck ✓ · touched tests ✓ · diff is comment-only ✓ | needs a look: …
 ```
 
-Then offer: fold the tidy into the relevant commits (preferred — a reviewer should never see the scaffolding) or commit separately as `chore(KEY): remove working notes`. If a deleted TODO or narrative held a real deferred item, add it to the PR's Deferred section in `commit-push-pr`.
+Then offer: fold the tidy into the relevant commits (preferred — a reviewer should never see the scaffolding), but only while those commits are unpushed; otherwise commit separately as `chore(KEY): remove working notes` (rewriting pushed history needs a force-push, which the Bash guard blocks). If a deleted TODO or narrative held a real deferred item, add it to the PR's Deferred section in `commit-push-pr`.
 
 ## 6. Compound
 

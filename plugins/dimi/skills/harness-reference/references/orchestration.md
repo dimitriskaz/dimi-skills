@@ -1,6 +1,6 @@
 # Orchestration layer
 
-> From *The Agentic Harness: A Layer-by-Layer Guide*, as of 24 October 2026. Principles here change slowly; versions, statuses, prices and dates do not. Verify dated facts against live docs (Context7, or the official pages listed in `sources.md`) before relying on them, or run `/dimi:refresh-harness`.
+> From *The Agentic Harness: A Layer-by-Layer Guide*, as of 24 October 2026. Principles here change slowly; versions, statuses, prices and dates do not. Verify dated facts against live docs (Context7, or the official pages listed in `sources.md`) before relying on them, or ask the author to run `/dimi:refresh-harness`.
 
 Contents:
 
@@ -83,7 +83,7 @@ In a dynamic workflow the model designs the plan at runtime: it decides which st
 **Guardrails that make dynamic plans safe**
 
 - Budgets: maximum steps, tokens, wall-clock time and cost per run, enforced by the harness rather than the prompt.
-- An allow-list of tools per agent, so a plan cannot reach for capabilities it was never given.
+- An allowlist of tools per agent, so a plan cannot reach for capabilities it was never given.
 - Plan validation: the plan is emitted as structured output and checked against a schema and business rules before execution.
 - Plan approval: for high-stakes tasks, a human approves the plan once instead of approving every step.
 - Stall detection: repeated identical tool calls, or no state change for N steps, triggers a re-plan or escalation.

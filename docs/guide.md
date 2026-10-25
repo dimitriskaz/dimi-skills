@@ -24,13 +24,13 @@ Rule of thumb from the official docs: **if Claude ignores an instruction twice, 
 
 ```
 plugins/dimi/            (installed as a plugin; same for every repo)
-  skills/        11 + 5 skills   — development loop + agent engineering
-  agents/        5 agents        — delegates for search, review, verification, specs, parallel work
-  hooks/hooks.json               — registers the 4 hooks
-  scripts/       4 scripts       — automatic gates and context (configured via plugin options)
+  skills/        23 skills       — development loop, agent building and agent engineering
+  agents/        6 agents        — delegates for search, review, verification, specs, parallel work, debugging
+  hooks/hooks.json               — registers the 5 hooks
+  scripts/       5 scripts       — automatic gates, context, session notes (configured via plugin options)
 templates/project-claude/        (copied into each repo; about that repo)
   .claude/settings.json          — permission allow/deny, enabledPlugins; no hooks block
-  .claude/rules/                 — 4 starter files of path-scoped judgement; grows via /compound
+  .claude/rules/                 — 4 starter files of path-scoped judgement; grows via /dimi:compound
   CLAUDE.md.snippet              — lines to paste into the repo's CLAUDE.md
 ```
 
@@ -48,7 +48,7 @@ Invoke with `/dimi:<name>`. Each is one file.
 
 ### `pr-correctness-scalability-review` — stage 2, usable alone
 **Purpose:** find the bugs linters can't: logic that is wrong at real scale, or in the second run, or under failure.
-**What it does:** ten "lenses" applied to the diff — pairs that must agree (trim on lookup vs store), *run it twice* (idempotency, retry, concurrency), every constant is a cliff (what happens past a cap?), real scale (reads that grow with history), failure modes (unread vs empty), claims vs code, hard-coded/copied/shipped-ahead, data semantics, what the tests prove, frontend specifics.
+**What it does:** eleven "lenses" applied to the diff — pairs that must agree (trim on lookup vs store), *run it twice* (idempotency, retry, concurrency), every constant is a cliff (what happens past a cap?), real scale (reads that grow with history), failure modes (unread vs empty), claims vs code, hard-coded/copied/shipped-ahead, data semantics, what the tests prove, frontend specifics.
 **Why it exists:** these were the categories of the Blockers in the review — duplicates past a cap, untrimmed ids, whole-tenant reads in the browser.
 
 ### `pr-security-data-review` — stage 3, usable alone
@@ -108,38 +108,64 @@ Short files of judgement. `repo-hygiene.md` has no `paths:` and loads every sess
 
 All seeded from the review's recurring findings. Every `.md` in the directory is loaded, so nothing but rules goes there. Budgets: unscoped total under ~60 lines, each scoped file under ~30. `/dimi:compound` is the intended way to grow them; `/doctor` proposes cuts.
 
+### `grill-me` — pressure-test the plan in conversation
+**Purpose:** the interview version of `plan-from-ticket`: one question at a time, depth-first, with a recommended answer each time, until every decision the build depends on is made. Looks in the repo before asking. **Why:** the official guide's "have Claude interview you, then write the spec"; the team's "two Claudes: one plans, one reviews as a staff engineer".
+
+### `debug` — root cause, with a log
+**Purpose:** replace "try things" with a loop that knows where it is. Capture → reproduce as a failing test → baseline (first run the tests) → isolate at boundaries → one hypothesis at a time with the prediction written first → fix the cause → prove the regression test fails with the fix reverted → remove the probes. **Stop rule:** two killed hypotheses → step back and re-plan. **Why:** "correcting over and over" is the drift pattern; symptom fixes (catch-and-continue, widened types, escape hatches) are `pr-self-review` findings anyway. The `debugger` agent runs the same loop in its own context.
+
+### `agent-evals` — make prompt changes measurable
+**Purpose:** golden tasks with expected tool sequences and outcomes; deterministic assertions first, a calibrated rubric judge only for what cannot be asserted; 3–5 trials with a tolerance (expressed in trials) against a committed baseline; replay mode (recorded fixtures and transcripts, no model call) as the CI regression gate, semi-live mode by hand, live mode behind a flag and a spend budget; injection fixtures paired with a non-injected twin. **Why:** `review-agent`'s rubric demands evals; nothing else in the toolkit built them.
+
+### `walkthrough` — explain a flow so someone can follow it
+**Purpose:** a linear document in the order the data moves: entry → steps with `path:line` → result; the data on the way through; invariants and the *why* behind decisions; where people trip; boundaries; how to change it safely; optional Mermaid diagram. Audience-tuned (newcomer / reviewer / client). Every claim verified by reading or marked unverified. **Why:** onboarding onto client repos; briefing teammates; the "linear walkthroughs" pattern.
+
+### `release-notes` — notes plus illustrated docs
+**Purpose:** collect merged PRs since the last tag, group by module → feature in the user's words with breaking changes and migrations; plan **scenes** (one per step a user takes) in a committed `scenes.yaml`; capture each with Playwright against a seeded **demo tenant** (host allowlist, PII regions masked, fixed viewport and clock); inspect every image; assemble `docs/releases/<version>/` with one screenshot per step. `--docs` covers every module and becomes the product documentation. **Why:** documentation that matches the code that shipped, regenerated per release with stable scene ids so only changed screens diff.
+
+### `poc` — keep the demo branch alive and honest
+**Purpose:** a demo branch is allowed shortcuts; it is not allowed to lose track of them. `init` sets the branch, marker and ledger; `mark` tags each shortcut `DEMO-ONLY(<feature>): <why>` and registers it; `push` commits and pushes straight to the shared demo branch behind a light gate (on the demo branch, secrets, customer data, unmarked shortcuts, ledger rows); `sync` merges the default branch in (never rebase, never force) resolving conflicts by the ledger; `status` reports demo-only / owed / ported and detects drift. **Why:** the FDE pattern — build fast on a demo branch, then productionise — fails when nobody knows which shortcuts are which.
+
+### `port` — demo → production, deliberately
+**Purpose:** compute the real feature delta (`git log --cherry-mark` removes what is already upstream by patch-id; hunks identical to your open PRs are excluded), build a throwaway **integration worktree** of main plus your unmerged PRs so the port is written against what will exist, classify every POC hunk as **reuse / rewrite / drop** against the house rules (expect mostly rewrite), choose the base — main, or stacked one level on the PR it depends on — then build through `plan-from-ticket` → `tidy` → `pr-self-review` → `commit-push-pr` and mark the ledger row `ported`. The demo branch is only ever read. **Why:** cherry-picking a POC ports its shortcuts and its stale assumptions; this makes the POC the spec, not the code.
+
 ---
 
 ## Hooks (`plugins/dimi/scripts/*.sh`, registered in `hooks/hooks.json`)
 
-All four need `jq` installed. Configure them once per repo in `/plugin` → dimi → **Configure options**; the scripts read those as `CLAUDE_PLUGIN_OPTION_*`, fall back to `STOP_*`/`GUARD_*` env vars, then to defaults.
+All five need `jq` installed (without it they exit quietly and the session banner says so). Configure them once per repo in `/plugin` → dimi → **Configure options**; the scripts read those as `CLAUDE_PLUGIN_OPTION_*`, fall back to `STOP_*`/`GUARD_*` env vars, then to defaults.
 
 ### `format-file.sh` — runs after every file edit
 **Moment:** `PostToolUse` on `Edit|Write`.
 **Does:** prettier on the touched file (TS/JS/JSON/CSS/MD/YAML), `eslint --fix` on TS/JS, `ruff format` + `ruff check --fix` on Python. Always exits 0 — it never blocks and swallows tool errors.
 **Why:** formatting and auto-fixable lint should never be what turns CI red.
-**Tune:** `HOOK_ESLINT_FIX=0` if your eslint is slow.
+**Tune:** set the plugin option `eslint_fix_on_edit` to `0` if your eslint is slow (env `HOOK_ESLINT_FIX=0` outside a plugin install).
 
 ### `stop-check.sh` — runs when Claude thinks it's finished
 **Moment:** `Stop` (every time Claude ends a turn).
-**Does:** if anything changed vs `main`: greps changed files for debug leftovers (`.only(`, `fit(`, `debugger`, `breakpoint()`); runs the `typecheck` script **only for the packages whose `.ts` files changed, one at a time, under a time budget** (default 150 s — past it, it asks Claude once to run it scoped and then stops blocking); runs your Python lint if any `.py` changed. On failure it exits 2 with the reason — Claude is **not allowed to stop** and must fix it. On pass it caches a signature of the tree so it doesn't re-run until something changes.
+**Does:** if anything changed vs `main`: greps changed files for debug leftovers (`.only(`, `fit(`, `debugger`, `breakpoint()`, `DBG-` probe lines); runs the `typecheck` script **only for the packages whose `.ts` files changed, one at a time, under a time budget** (default 150 s — past it, it asks Claude once to run it scoped and then skips that package for the rest of the branch); runs your Python lint if any `.py` changed. On failure it exits 2 with the reason — Claude is **not allowed to stop** and must fix it. On pass it caches a signature of the tree so it doesn't re-run until something changes.
 **Why:** this is the deterministic floor under "the fix loop". The failure arrives while Claude still has the context to fix it, not after push.
 **Safety:** after it blocks once in a turn (`stop_hook_active`) it lets Claude stop, so it cannot loop forever.
 **Options:** typecheck script name, whole-repo fallback (ideally incremental `tsc -b`), budget seconds, Python lint command and path regex, default branch.
 
 ### `guard-bash.sh` — runs before every shell command
 **Moment:** `PreToolUse` on `Bash`.
-**Does:** blocks (exit 2 with reason) force pushes, pushes to protected branches, `--no-verify`, sweeping `git add -A` / `git add .`, and `git commit -m` messages without the ticket key. Everything else passes.
+**Does:** blocks (exit 2 with reason) force pushes (`-f`, `--force`, `--force-with-lease`, `+refspec`), pushes to or deletes of protected branches in every spelling (`git push`, `git push origin`, `git push origin HEAD`/`@`, `--repo=`, `--all`/`--mirror`), `git -C`/`--git-dir` with any guarded subcommand, `--no-verify`/`-n`, sweeping staging (`git add -A|-u|.|./|:/|*`, `git stage`, `git commit -a`), `git commit -m` messages without the ticket key, and `git rebase`/`git pull --rebase` on the configured demo branch. Quoted text that mentions these commands is ignored. A target hidden in a variable, `xargs` or `eval` is not seen: the guard is a seatbelt, not a security boundary. Everything else passes.
 **Why:** the review's "unrelated evidence PNG churn" and "customer data committed" findings are what `git add -A` does. Cheap to prevent, expensive to undo.
-**Options:** ticket regex, protected branches.
+**Options:** ticket regex (`none` disables), protected branches (exact names, pipe-separated; the default branch is always included), default branch, demo branch.
 
 ### `session-context.sh` — runs when a session starts, resumes, or compacts
-**Moment:** `SessionStart` with source `startup | resume | compact`.
+**Moment:** `SessionStart` with source `startup | resume | clear | compact | fork`.
 **Does:** prints a short block into Claude's context: branch, ticket key, commits behind `main`, changed files, your local check commands, the three house rules, and (after compaction) a reminder to re-read the plan.
 **Why:** `/clear` and compaction are the main defence against context drift, but they cost re-orientation. This makes them nearly free, without bloating `CLAUDE.md`.
 **Options:** local checks line (display only), ticket regex, default branch. Also announces `.claude/fde-client-profile.md` when present.
 
 ---
+
+### `session-end-note.sh` — runs when a session ends
+**Moment:** `SessionEnd` (any reason: `/clear`, exit, logout).
+**Does:** appends one line — time, reason, branch, uncommitted count, and the first line of Claude's last message (recorded by the Stop hook) — to a per-project log in the plugin data directory, kept to 20 lines. The next `SessionStart` banner prints "Last session here: …".
+**Why:** resume without re-explaining; the deterministic half of a handoff. Runs in ~35 ms, well inside the SessionEnd budget.
 
 ## Subagents (`plugins/dimi/agents/*.md`)
 
@@ -152,6 +178,7 @@ Each is a Markdown file: frontmatter (name, model, tools, isolation…) plus a s
 | **`verifier`** | sonnet | No | No | "Prove it works." Runs lint/typecheck/tests/relevant specs for what changed and returns a table of commands, exit codes and evidence. Never fixes — it is the independent check, and the thing to put behind a `/goal`. |
 | **`spec-writer`** | sonnet | Only e2e + evidence dirs | No | A UI change needs its Playwright spec. Reads two existing specs first and matches their conventions; prioritises the risky states (failed read, 403, partial success). |
 | **`implementer`** | opus | Yes | **Yes** — branches from `main` | One *independent* unit of work, start to commit, in parallel with others. Not for splitting a ticket you're mid-way through: its worktree can't see your uncommitted changes. |
+| **`debugger`** | sonnet | Yes | No | A long or noisy debugging hunt. Runs the `debug` loop (preloaded) in its own context and returns root cause, fix, regression test and what was ruled out. Stage/commit nothing. |
 
 Why "No" on worktree isolation for most of them: they need to see *your current working tree*, including uncommitted edits. An isolated worktree branches from `main` and wouldn't.
 
@@ -198,7 +225,7 @@ Three usual causes, in order of likelihood, and what the plugin does about each:
 
 1. **Fork mode** (on by default since v2.1.302): Claude spawns copies of itself for side tasks, each with its own shell, and while fork mode is on it can't wait for a subagent. The per-repo template's `settings.json` denies `Agent(fork)`; the named agents still work. Delete that line to allow forks again (or set `CLAUDE_CODE_FORK_SUBAGENT=0`).
 2. **Parallel heavy commands**: typecheck in one shell, tests in another, lint in a third — Node processes fighting for CPU, each slower than alone. The `CLAUDE.md` snippet's **Speed** section, the `verifier` and `implementer` agents and `pr-self-review` all say: heavy checks one at a time, scoped to the touched package.
-3. **Whole-repo checks on every turn**: the Stop hook typechecks **only the packages whose `.ts` files changed**, one at a time, under a time budget (option `typecheck_budget_s`, default 150 s). Past the budget it asks Claude once to run it scoped and then stops blocking. If your packages have no `typecheck` script, set the whole-repo fallback option to something incremental (`pnpm exec tsc -b`), or the gate silently does nothing.
+3. **Whole-repo checks on every turn**: the Stop hook typechecks **only the packages whose `.ts` files changed**, one at a time, under a time budget (option `typecheck_budget_s`, default 150 s). Past the budget it asks Claude once to run it scoped and then skips that package for the rest of the branch. If your packages have no `typecheck` script, set the whole-repo fallback option to something incremental (`pnpm exec tsc -b`), or the gate silently does nothing.
 
 Then look at the session: `/context` shows how full the window is (full = slow and forgetful → `/clear`); `/effort` may be higher than the task needs; `/model` may be on Opus for a Sonnet-shaped task (`opusplan`). After two failed corrections on one issue, `/clear` and restate.
 
@@ -213,8 +240,14 @@ export CLAUDE_PROJECT_DIR="$T" CLAUDE_PLUGIN_ROOT=<path to plugins/dimi> CLAUDE_
 echo '{"stop_hook_active":false}' | bash "$CLAUDE_PLUGIN_ROOT/scripts/stop-check.sh"; echo "rc=$?"     # 0 = may stop, 2 = blocked with reason on stderr
 echo '{"stop_hook_active":true}'  | bash "$CLAUDE_PLUGIN_ROOT/scripts/stop-check.sh"; echo "rc=$?"     # must be 0
 printf '{"tool_input":{"command":"git push origin main"}}' | bash "$CLAUDE_PLUGIN_ROOT/scripts/guard-bash.sh"; echo "rc=$?"   # must be 2
+git checkout -q main
+for c in "git push" "git push origin" "git push origin HEAD" "git push -u origin" "git push origin :main" "git push --all"; do   # all must be 2 while on main
+  printf '{"tool_input":{"command":"%s"}}' "$c" | bash "$CLAUDE_PLUGIN_ROOT/scripts/guard-bash.sh"; echo "$c rc=$?"; done
+git checkout -q feat/PROJ-2
 echo '{"source":"clear"}' | bash "$CLAUDE_PLUGIN_ROOT/scripts/session-context.sh"                                           # prints the banner
+PATH=/usr/bin:/bin bash -c 'echo "{\"stop_hook_active\":false}" | bash "$CLAUDE_PLUGIN_ROOT/scripts/stop-check.sh"; echo "rc=$?"'  # pnpm/ruff absent: rc 0 plus a systemMessage, never 2
 ```
+Also run the scripts once with `jq` off PATH: every one must exit 0 (the guard and the gate are inactive without it, and the banner says so).
 Run it twice: once with GNU tools on PATH and once with a PATH that lacks `timeout`, `sha1sum` and GNU `xargs` (stock macOS). The scripts carry fallbacks for all three; the test is what proves they still do. Keep stderr captures outside the repo, or they count as untracked changes.
 
 ## Beyond the plugin: habits and personal settings worth adopting

@@ -7,14 +7,14 @@ description: "Deep code-review checklist for correctness, scalability and conven
 
 Stage 2 of `pr-self-review`; also usable alone ("scale pass on my changes", "correctness check before I commit"). Input: a diff file `$DIFF` (the working tree against the base branch, including untracked files, or a PR's own base...head) and the code readable as it is now. Output: findings in the `pr-self-review` interchange format, plus `STRENGTHS:` and `CHECKED_CLEAN:` bullets.
 
-If run alone, build the diff first:
+If run alone, build the diff first. `$OUT` is the session's scratchpad directory if it gives one (set `OUT=<scratchpad path>` before the block), else `$TOP/../pr-correctness-scalability-review-<repo>/` next to the checkout (absolute, never inside the repo); `$DIFF=$OUT/review.diff`. Resolve the options here (they are substituted only in this file), then run §1 of `${CLAUDE_PLUGIN_ROOT}/skills/pr-self-review/references/diff-and-policy.md` (merge-base diff plus `--no-index` diffs for untracked files into `$DIFF`; sets `$BASE`):
 ```bash
-DB=${CLAUDE_PLUGIN_OPTION_DEFAULT_BRANCH:-$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||')}; DB=${DB:-main}
-BASE=$(git merge-base "origin/$DB" HEAD); git diff $BASE > $DIFF
-git ls-files --others --exclude-standard | while read -r f; do git diff --no-index -- /dev/null "$f"; done >> $DIFF 2>/dev/null
+DB='${user_config.default_branch}'; case "$DB" in '$'*) DB='';; esac; [ -z "$DB" ] && DB=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||'); DB=${DB:-main}
+TOP=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "not a git repository" >&2; exit 1; }
+REPO=$(basename "$TOP"); OUT=${OUT:-$TOP/../pr-correctness-scalability-review-$REPO}
 ```
 
-Use the `SCALE` line from the `pr-self-review` policy block (the repo's realistic one-year volumes). Every "does this scale" question is answered against those numbers, not the demo dataset.
+Use the `SCALE` line from the Repo policy block (`${CLAUDE_PLUGIN_ROOT}/skills/pr-self-review/references/diff-and-policy.md` §4; the repo's realistic one-year volumes). Every "does this scale" question is answered against those numbers, not the demo dataset.
 
 ## Method
 
@@ -24,10 +24,10 @@ Apply each lens to every relevant line, then confirm by reading. Report nothing 
 
 ### Lens 1 — Pairs and symmetry
 Most real bugs live between two places that must agree. For every operation, find its partner and compare:
-- **Normalise on lookup vs normalise on store** (trim, case, strip). `'CTRL-01 '` stored untrimmed never matches again; every re-import duplicates it.
+- **Normalise on lookup vs normalise on store** (trim, case, strip). `'ITEM-01 '` stored untrimmed never matches again; every re-import duplicates it.
 - **Preview vs commit**: does preview count as matched what commit will not resolve?
 - **Two walkers / parsers / formatters** for one shape: same completion rule, same missing-value rule, same error mapping?
-- **Two implementations of one metric or rule** ("tested", "covered", a relationship-verb helper, occupancy limits): do they agree; which is canonical?
+- **Two implementations of one metric or rule** ("active", "complete", a status helper, a quota rule): do they agree; which is canonical?
 - **Gate on path A vs path B**: the edit route refuses X; do import, bulk patch, agent write, fill-empty refuse it too?
 - **Written vs shown**: results record the spec/version hash and thresholds; does the UI show the values *of that run* or today's?
 
@@ -41,18 +41,18 @@ For every import, sync, collect, job, commit or migration-like path:
 ```bash
 grep -nE '^\+.*(MAX_|_LIMIT|PAGE_SIZE|_PAGES|TIMEOUT|single_page|\.slice\(0|limit[:=]\s*[0-9]|\bcap\b)' $DIFF
 ```
-For each: (a) what happens **past** the cap — error, banner, or silent truncation returned as `ok`? (b) is the cap on both sides of a comparison (listing capped at 5k, held-records read capped at 5.2k → everything past looks absent and is re-created)? (c) does it match the service (30 s client timeout vs a 3-minute server limit; multi-year windows)? (d) does truncation produce **wrong numbers** behind a "partial" banner? Wrong headline numbers behind a banner are wrong numbers.
+For each: (a) what happens **past** the cap — error, banner, or silent truncation returned as `ok`? (b) is the cap on both sides of a comparison (the listing capped at 5k, the existing-records lookup capped at 5.2k → everything past looks absent and is re-created)? (c) does it match the service (30 s client timeout vs a 3-minute server limit; multi-year windows)? (d) does truncation produce **wrong numbers** behind a "partial" banner? Wrong headline numbers behind a banner are wrong numbers.
 
 ### Lens 4 — Real scale
 For every read and write, estimate rows at `SCALE` one year in, then ask:
 - **Grows with history?** Append-only tables re-read on hot paths (list/detail routes, every page open, every poll tick) get slower forever. Newest-per / `DISTINCT ON` / whole-inventory reads that no index serves belong on a write path or in a summary record.
-- **Whole-tenant read into the browser?** Every record of N kinds and every edge type pulled client-side truncates at scale. Fix: server-side aggregate (latest per test, coverage counts), not more client paging.
+- **Whole-tenant read into the browser?** Every record of N kinds and every edge type pulled client-side truncates at scale. Fix: server-side aggregate (latest per key, summary counts), not more client paging.
 - **Bounded, projected, deduplicated?** Full payloads with no projection; kinds fetched and unused; edge types fetched and discarded; re-fetch on every drawer open despite "read once".
 - **Polling**: fixed interval, no cache, no conditional request; guard checks the last *completed* read so `focus` and `visibilitychange` both start loads; multiply by open tabs.
 - **Serial awaits in one request**: `for (...) await patch(...)`; one edge write per link; ~200 lookups in sequence. Worst case against the gateway timeout. Batch, bulk, or bounded concurrency.
 - **Retry granularity**: a 429 on page 40 that restarts from page 1 makes throttling worse.
 - **Work before configuration**: the whole estate fetched before discovering "Not configured".
-- **Per-run work that should be per-change**: a refresh now running for every domain on every collect, including ones the change did not touch.
+- **Per-run work that should be per-change**: a refresh now running for every source on every sync, including ones the change did not touch.
 - **Model complexity**: pure models should be ~O(N+E); nested loops over records × edges are not.
 
 ### Lens 5 — Failure modes
@@ -111,7 +111,7 @@ grep -nE '^\+\s*(for|while)\b' $DIFF                                        # th
 grep -nE '^\+.*(Date\.now\(\)|new Date\(\)|Date\.parse|datetime\.now|utcnow)' $DIFF
 grep -nE '^\+.*\.(startsWith|startswith)\(' $DIFF
 grep -nE '^\+.*(setInterval|visibilitychange|addEventListener\(.focus)' $DIFF
-grep -nE '^\+.*(new Map\(|_inflight|_cache\b|lru_cache|^\+\s*global )' $DIFF   # in-process state
+grep -nE '^\+(.*(new Map\(|_inflight|_cache\b|lru_cache)|\s*global )' $DIFF      # in-process state
 grep -nE '^\+.*\.(trim|strip|lower|toLowerCase|toUpperCase)\(' $DIFF       # check the partner path
 grep -nE '^\+.*(catch\s*\(|catch\s*\{|except\b)' $DIFF                      # what is swallowed?
 grep -niE '^\+.*(read once|cached|idempotent|lock|lease|never|always)' $DIFF # claims
@@ -120,7 +120,7 @@ grep -nE '^\+\s*(export (const|function|class)|def |class )' $DIFF          # ne
 ```
 
 ## Strengths to recognise (write them down)
-Exact-identity matching with fuzzy merge deliberately avoided; enrich-never-overwrite; batched lookups and bulk writes with explicit caps; partial lists refused as data; ambiguous matches refused, never guessed; three-valued outcomes with unread kept apart from empty; the read-failure branch evaluated before the empty branch; pure view models with a unit test per counting rule; latest-per-key chosen deterministically; last good snapshot kept on refresh failure; truncation surfaced; one record per test rather than per subject; failures logged without failing the job; new types as seeds not migrations where that is the convention.
+Exact-identity matching with fuzzy merge deliberately avoided; enrich-never-overwrite; batched lookups and bulk writes with explicit caps; partial lists refused as data; ambiguous matches refused, never guessed; three-valued outcomes with unread kept apart from empty; the read-failure branch evaluated before the empty branch; pure view models with a unit test per counting rule; latest-per-key chosen deterministically; last good snapshot kept on refresh failure; truncation surfaced; one record per run rather than per item; failures logged without failing the job; new types as seeds not migrations where that is the convention.
 
 ## Reporting
 Use the `pr-self-review` interchange format. Title the defect, not the symptom ("External IDs not trimmed when stored", not "duplicates on re-import"). One clause of fix. Pattern predates the change → `predates: yes` and why it still counts (heavier rows, newly reachable path, keying locked in). One finding per defect; spans server and UI → report where it should be fixed with `also_affects`.

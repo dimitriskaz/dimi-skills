@@ -1,6 +1,6 @@
 # Sources and refresh checklist
 
-> From *The Agentic Harness: A Layer-by-Layer Guide*, as of 24 October 2026. Principles here change slowly; versions, statuses, prices and dates do not. Verify dated facts against live docs (Context7, or the official pages listed in `sources.md`) before relying on them, or run `/dimi:refresh-harness`.
+> From *The Agentic Harness: A Layer-by-Layer Guide*, as of 24 October 2026. Principles here change slowly; versions, statuses, prices and dates do not. Verify dated facts against live docs (Context7, or the official pages listed in `sources.md`) before relying on them, or ask the author to run `/dimi:refresh-harness`.
 
 Contents:
 
@@ -9,8 +9,9 @@ Contents:
 - Part 2: Tools
 - Part 3: RAG
 - Part 4: Observability
+- Part 5: Cross-cutting concerns
 
-Every page cited in this guide is listed below, grouped by part, with a short list of the pages to check first when refreshing it. All were consulted on 24 October 2026; Part 5 draws on the same sources.
+Every page cited in this guide is listed below, grouped by part, with a short list of the pages to check first when refreshing it. All were consulted on 24 October 2026. Part 5 reuses the Part 1 and Part 2 pages for platform identity and MCP, plus the sources listed under Part 5.
 
 ## Where to check first when refreshing
 
@@ -28,7 +29,7 @@ Every page cited in this guide is listed below, grouped by part, with a short li
 | Embedding and reranking models | [Cohere changelog](https://docs.cohere.com/changelog), [Voyage embeddings](https://docs.voyageai.com/docs/embeddings), [MTEB leaderboard](https://huggingface.co/spaces/mteb/leaderboard) |
 | Agent benchmarks | [SWE-bench Pro](https://labs.scale.com/leaderboard/swe_bench_pro), [Terminal-Bench](https://www.tbench.ai/), [τ-bench](https://taubench.com/) |
 | Prompt caching and pricing | [Anthropic](https://platform.claude.com/docs/en/build-with-claude/prompt-caching), [OpenAI](https://developers.openai.com/api/docs/guides/prompt-caching), [Gemini](https://ai.google.dev/gemini-api/docs/caching) |
-| Security guidance | [OWASP MCP Top 10](https://owasp.org/www-project-mcp-top-10/), [MCP security best practices](https://modelcontextprotocol.io/docs/2026-07-28/tutorials/security/security_best_practices) |
+| Security guidance | [OWASP MCP Top 10](https://owasp.org/www-project-mcp-top-10/), [MCP security best practices](https://modelcontextprotocol.io/docs/2026-07-28/tutorials/security/security_best_practices) (confirm URL shape at next refresh: the `/docs/<revision>/tutorials/...` path differs from the `/specification/<revision>/...` pattern of the other spec pages) |
 | EU AI Act | [artificialintelligenceact.eu](https://artificialintelligenceact.eu/) |
 | Independent assessments | [Thoughtworks Technology Radar](https://www.thoughtworks.com/radar/languages-and-frameworks/agent-development-kit-adk) |
 
@@ -165,7 +166,7 @@ Every page cited in this guide is listed below, grouped by part, with a short li
 
 **MCP security and gateways**
 
-- [MCP security best practices](https://modelcontextprotocol.io/docs/2026-07-28/tutorials/security/security_best_practices)
+- [MCP security best practices](https://modelcontextprotocol.io/docs/2026-07-28/tutorials/security/security_best_practices) (confirm URL shape at next refresh; see the table above)
 - [MCP blog: tool annotations and the lethal trifecta](https://blog.modelcontextprotocol.io/posts/2026-03-16-tool-annotations/)
 - [Invariant Labs: MCP tool poisoning attacks](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks)
 - [Cloud Security Alliance: MCP security whitepaper](https://labs.cloudsecurityalliance.org/research-rb/csa-whitepaper-mcp-security-tool-poisoning-20260506-csa-styl/)
@@ -320,3 +321,63 @@ Every page cited in this guide is listed below, grouped by part, with a short li
 - [GAIA (paper)](https://arxiv.org/abs/2311.12983)
 - [BrowseComp](https://openai.com/index/browsecomp/)
 - [MCP-Atlas (paper)](https://arxiv.org/abs/2602.00933v1)
+
+## Part 5: Cross-cutting concerns
+
+Platform identity (Entra Agent ID, AgentCore Identity, Google Agent Identity), MCP authorisation and the Enterprise-Managed Authorization extension are cited from the Part 1 and Part 2 pages above. Sources specific to Part 5:
+
+**Security and privilege separation**
+
+- [Meta: Agents Rule of Two](https://ai.meta.com/blog/practical-ai-agent-security/) (URL to confirm at next refresh)
+- [CaMeL: defeating prompt injections by design (paper)](https://arxiv.org/abs/2503.18813)
+- [Simon Willison: the lethal trifecta](https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/)
+- [OWASP Top 10 for LLM Applications](https://genai.owasp.org/llm-top-10/)
+
+**Authorisation and policy**
+
+- [Cedar policy language](https://www.cedarpolicy.com/)
+- [Open Policy Agent](https://www.openpolicyagent.org/docs/)
+- [OpenFGA](https://openfga.dev/docs)
+- [SpiceDB](https://authzed.com/docs)
+
+**Model gateways**
+
+- [LiteLLM](https://docs.litellm.ai/docs/)
+- [Portkey](https://portkey.ai/docs)
+- [OpenRouter](https://openrouter.ai/docs)
+- [Vercel AI Gateway](https://vercel.com/docs/ai-gateway)
+- [Cloudflare AI Gateway](https://developers.cloudflare.com/ai-gateway/)
+- [Kong AI Gateway](https://developer.konghq.com/ai-gateway/) (URL to confirm at next refresh)
+
+**Self-hosted inference**
+
+- [vLLM](https://docs.vllm.ai/)
+- [SGLang](https://docs.sglang.ai/) (URL to confirm at next refresh)
+- [NVIDIA TensorRT-LLM](https://nvidia.github.io/TensorRT-LLM/) and [NVIDIA NIM](https://docs.nvidia.com/nim/)
+- [Ollama](https://github.com/ollama/ollama)
+- [llama.cpp](https://github.com/ggml-org/llama.cpp)
+
+**User interface kits**
+
+- [CopilotKit](https://docs.copilotkit.ai/)
+- [OpenAI ChatKit](https://platform.openai.com/docs/guides/chatkit) (URL to confirm at next refresh)
+
+**Data governance**
+
+- [Text embeddings reveal (almost) as much as text (paper, embedding inversion)](https://arxiv.org/abs/2310.06816)
+
+**Red teaming**
+
+- [PyRIT](https://azure.github.io/PyRIT/)
+- [garak](https://github.com/NVIDIA/garak)
+- [AgentDojo (paper)](https://arxiv.org/abs/2406.13352)
+- [promptfoo red teaming](https://www.promptfoo.dev/docs/red-team/)
+
+**Guardrail tools**
+
+- [Llama Guard and Prompt Guard](https://www.llama.com/docs/model-cards-and-prompt-formats/) (URL to confirm at next refresh)
+- [Azure AI Content Safety](https://learn.microsoft.com/en-us/azure/ai-services/content-safety/overview)
+- [Amazon Bedrock Guardrails](https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails.html)
+- [Google Model Armor](https://cloud.google.com/security-command-center/docs/model-armor-overview)
+- [NVIDIA NeMo Guardrails](https://github.com/NVIDIA/NeMo-Guardrails)
+- [Guardrails AI](https://www.guardrailsai.com/docs) and [LLM Guard](https://llm-guard.com/)
