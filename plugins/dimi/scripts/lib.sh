@@ -71,6 +71,10 @@ with_timeout() {
 
 # ---- the change ----------------------------------------------------------------------------------------
 # NEVER_DUMP_RE: untracked files whose content never enters a diff or a scan output (listed by name only).
+# LOCAL_STATE_RE: paths the tooling itself leaves in the repo (hook state, agent worktrees under .claude/worktrees/),
+# never part of the change.
+LOCAL_STATE_RE='^\.claude/(\.cache|worktrees)/'
+
 NEVER_DUMP_RE='(^|/)\.env(\.|$)|(^|/)\.(npmrc|netrc|pypirc|pgpass)$|(^|/)id_(rsa|dsa|ecdsa|ed25519)|(^|/)credentials|\.(pem|key|p12|pfx|jks|keystore|kdbx|tfstate|sqlite|sqlite3|db|dump|bak)$|\.tfstate\.backup$|storageState|(^|/)\.auth/|^\.claude/\.cache/'
 
 # git_diff <args…>: git diff in a fixed, parseable format whatever the user's config (paths unquoted, a/ b/
@@ -84,7 +88,7 @@ change_diff() {
   local base="$1" ix rc
   ix=$(mktemp 2>/dev/null) || { git_diff "$base"; return; }
   rm -f "$ix"; cp "$(git rev-parse --git-path index)" "$ix" 2>/dev/null   # no index yet: git starts an empty one
-  git ls-files --others --exclude-standard 2>/dev/null | grep -vE -- "$NEVER_DUMP_RE" \
+  git ls-files --others --exclude-standard 2>/dev/null | grep -vE -- "$NEVER_DUMP_RE" | grep -vE -- "$LOCAL_STATE_RE" \
     | GIT_INDEX_FILE="$ix" git add -N --pathspec-from-file=- 2>/dev/null
   GIT_INDEX_FILE="$ix" git_diff "$base"; rc=$?
   rm -f "$ix"; return $rc
@@ -126,7 +130,7 @@ tree_fingerprint() {
   local t; t=$(top) || return 0
   ( cd "$t" || exit 0
     L=$( { git -c core.quotePath=false diff --name-only --no-renames "$1" 2>/dev/null
-           git -c core.quotePath=false ls-files --others --exclude-standard 2>/dev/null; } | grep -v '^\.claude/\.cache/' | sort -u )
+           git -c core.quotePath=false ls-files --others --exclude-standard 2>/dev/null; } | grep -vE -- "$LOCAL_STATE_RE" | sort -u )
     E=$(printf '%s\n' "$L" | while IFS= read -r f; do [ -f "$f" ] && printf '%s\n' "$f"; done)
     { if [ -n "$E" ]; then printf '%s\n' "$E" | git hash-object --stdin-paths 2>/dev/null | paste -d' ' - /dev/fd/3 3<<EOF
 $E

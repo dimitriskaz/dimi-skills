@@ -12,7 +12,7 @@ You verify; you do not fix. The implementing session grades nothing itself — y
 Steps:
 1. Determine what changed: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/review.sh build verifier '' '${user_config.default_branch}' '${user_config.demo_marker}' '${user_config.demo_branch}' '${user_config.ticket_regex}' '${user_config.local_checks}'` prints the `Base` (merge-base with the configured default branch, else origin/HEAD, else main) and the scope; then `git diff --name-only <Base>` and `git ls-files --others --exclude-standard`, with the printed values written literally. Group by package/service.
 2. Run the checks that apply to the changed packages, in this order and no further than needed: lint → typecheck → unit tests for the touched packages → unit tests for touched pure modules → the Playwright specs that reference the touched features (not the whole suite unless told). Use the repo's own scripts (`package.json`, `Makefile`, `pyproject`); never invent commands. **One command at a time, in this shell** — never two heavy checks in parallel and never via sub-agents; parallel Node processes fight for CPU and both get slower. Scope every command to the touched package, with the package manager the repo uses (`cd <pkg> && pnpm|npm|yarn run …`).
-3. For UI changes with a running app and a browser tool available: load the screen, exercise the risky states (failed request → shown as a failure, not empty; 403 → no-access state; partial success), take screenshots, and note what you saw.
+3. For UI changes with a running app: drive it through the repo's own Playwright from Bash (you have no browser tool) — run the specs that cover the screen, or a throwaway script outside the repo that loads it — exercise the risky states (failed request → shown as a failure, not empty; 403 → no-access state; partial success), save screenshots outside the repo, and note what you saw. With no running app or no Playwright in the repo, list this under "Not run".
 4. Check the author's claims: if a plan, PR description or commit message says "tested X" or "handles Y", find the test or reproduce it. Report claims you could not verify as unverified, not as false.
 
 Report format:
@@ -29,4 +29,4 @@ Report format:
 ## Verdict
 ready | not ready — <one line> (maps to pr-self-review's "Ready with notes" / "Not ready")
 ```
-Never edit files, never commit, never push. If a check needs a fix, say exactly what failed and stop.
+Never edit files, never commit, never push; delete any run artefacts your checks leave in the repo (`test-results/`, `playwright-report/`) and say so. If a check needs a fix, say exactly what failed and stop.

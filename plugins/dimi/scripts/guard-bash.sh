@@ -7,6 +7,8 @@
 #   - any push or delete that targets a protected branch, including the implicit forms
 #     (`git push`, `git push origin`, `git push -u origin`, `git push origin HEAD`/`@`/`HEAD~0`, `--repo=`)
 #   - `git rebase` and `git pull --rebase` while on the demo branch, or a rebase that names it
+#   - each of these judged on the branch an earlier `git checkout <branch>` / `git switch <branch>` in the same command
+#     moves to (`git checkout main && git push`)
 #   - --no-verify / -n on commit, --no-verify on push
 #   - sweeping staging: `git add -A|--all|-u|--update|.|./|:/|*|..`, `git stage …`, `git commit -a|--all`
 #   - commits whose -m message lacks the ticket key (set ticket_regex to `none` to disable)
@@ -40,7 +42,9 @@ DEMO_BRANCH="${CLAUDE_PLUGIN_OPTION_DEMO_BRANCH:-${GUARD_DEMO_BRANCH:-}}"
 # --------------------------------------------------------------------------------
 
 block() { printf 'Blocked by dimi guard-bash: %s\n' "$1" >&2; exit 2; }
-current_branch() { if [ -n "${GDIR:-}" ]; then git -C "$GDIR" rev-parse --abbrev-ref HEAD 2>/dev/null || true; else git rev-parse --abbrev-ref HEAD 2>/dev/null || true; fi; }
+# SWITCHED: the branch an earlier `git checkout`/`git switch` in the same command moves to (`git checkout main && git push`).
+SWITCHED=""
+current_branch() { if [ -z "${GDIR:-}" ] && [ -n "$SWITCHED" ]; then printf '%s\n' "$SWITCHED"; return; fi; if [ -n "${GDIR:-}" ]; then git -C "$GDIR" rev-parse --abbrev-ref HEAD 2>/dev/null || true; else git rev-parse --abbrev-ref HEAD 2>/dev/null || true; fi; }
 is_protected() { # name or shell glob (release/*) match against the pipe-separated list (not a regex)
   local b="$1" p; local IFS='|'
   # shellcheck disable=SC2254
@@ -213,6 +217,22 @@ check_pull() { # args after `pull`; $PULL_CFG set when -c pull.rebase=true was g
   return 0
 }
 
+# ---- git checkout / switch: remember the branch the rest of the command runs on ---------
+check_switch() { # args after `checkout`/`switch`
+  local t next=0 b=""
+  for t in "$@"; do
+    if [ "$next" = 1 ]; then b="$t"; break; fi
+    case "$t" in
+      --) break ;;                                                # paths follow: a file checkout, not a branch switch
+      -b|-B|-c|-C|--orphan) next=1 ;;                             # the new branch's name comes next
+      -*) ;;
+      *) git show-ref --verify --quiet "refs/heads/$t" 2>/dev/null && b="$t"; break ;;   # an existing branch, not a path
+    esac
+  done
+  [ -n "$b" ] && SWITCHED="$b"
+  return 0
+}
+
 # ---- walk every git segment (up to the next ; | & ) ` or newline) -----------------------
 while IFS= read -r seg; do
   [ -z "$seg" ] && continue
@@ -237,11 +257,12 @@ while IFS= read -r seg; do
     commit)     check_commit "$@" ;;
     rebase)     check_rebase "$@" ;;
     pull)       check_pull "$@" ;;
+    checkout|switch) [ -z "$GDIR" ] && check_switch "$@" ;;
   esac
   printf '%s' "$seg" | grep -qE -- '(^|[[:space:]])--no-verify([[:space:]]|$)' && [ "$sub" = push ] \
     && block "--no-verify skips the repo's git hooks. Fix the failing hook instead."
 done <<EOF
-$(printf '%s\n' "$CMD_S" | grep -oE -- "${GIT_RE}(push|add|stage|commit|rebase|pull)[^;|&)\`]*" | sed -E 's/^[^g]//' || true)
+$(printf '%s\n' "$CMD_S" | grep -oE -- "${GIT_RE}(push|add|stage|commit|rebase|pull|checkout|switch)[^;|&)\`]*" | sed -E 's/^[^g]//' || true)
 EOF
 
 exit 0

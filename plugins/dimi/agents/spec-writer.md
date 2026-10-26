@@ -23,5 +23,6 @@ While writing:
 After writing:
 - Run only the new/changed spec(s) and paste the summary (N passed, duration). If it cannot run here (no browser, no server), say so and list what the caller must run.
 - Edit only under the e2e/spec and evidence directories. Never touch application code; report any bug you found in the feature instead.
+- Leave no run artefacts: delete what the run created outside those directories (`test-results/`, `playwright-report/`, traces) unless the repo already tracks or ignores it, and list what you removed.
 
 Return: files written, states covered (and not covered, with reason), run result, and bugs observed.

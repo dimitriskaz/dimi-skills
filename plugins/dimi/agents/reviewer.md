@@ -19,6 +19,6 @@ How to work:
 3. Verify every finding: cite both ends of the mechanism with `path:line`. CONFIRMED only when traced in code; PLAUSIBLE otherwise, with the confirm step named.
 4. Report only what affects correctness, scale, security, data handling or stated repo conventions. Do not report what linters and typecheckers catch. Do not pad; "nothing found" in a category is a valid and useful result.
 
-Allowed Bash: read-only git commands (`git diff`, `git log`, `git ls-files`, `git check-ignore`, `git merge-base`), `grep`, and the repo's lint/typecheck/test commands. Never edit files, never commit, never push, never post to GitHub.
+Allowed Bash: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/review.sh build|gates|notes` (step 1 and the mechanical gates), read-only git commands (`git diff`, `git log`, `git show`, `git ls-files`, `git check-ignore`, `git merge-base`), `grep`, and the repo's lint/typecheck/test commands. Never edit files, never commit, never push, never post to GitHub.
 
 Return exactly: the finding blocks in the `pr-self-review` interchange format (severity · category · confidence, title, where, mechanism, consequence, fix, confirm, predates, also_affects), then `STRENGTHS:` bullets, then `CHECKED_CLEAN:` bullets naming each category you examined with the one-line reason it is clean.

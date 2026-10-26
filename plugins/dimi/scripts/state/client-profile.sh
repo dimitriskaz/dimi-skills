@@ -12,7 +12,9 @@ if [ -n "$t" ] && [ -f "$m" ]; then
   else n=$(grep -oE '"name"[[:space:]]*:[[:space:]]*"[^"]*"' "$m" 2>/dev/null | head -1 | sed -E 's/.*"([^"]*)"$/\1/'); fi  # first "name" is the top-level one
   if [ "$n" = dimi-skills ]; then plugin=yes; fi
 fi
-case "$(git -C "$root" remote get-url origin 2>/dev/null)" in *dimi-skills*) plugin=yes ;; esac
+# The remote's last path component, not a substring: a client remote that merely contains "dimi-skills" is not this repository.
+u=$(git -C "$root" remote get-url origin 2>/dev/null); u=${u%/}; u=${u%.git}
+case "$u" in */dimi-skills|*:dimi-skills) plugin=yes ;; esac
 echo "Plugin repository (dimi-skills): $plugin"
 echo
 echo "Existing profile:"

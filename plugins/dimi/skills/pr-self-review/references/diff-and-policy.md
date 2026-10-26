@@ -47,7 +47,7 @@ EVIDENCE_DIR         = repo: where test evidence/screenshots live; only this tic
 RECORDS_DELETABLE    = repo: yes|no — if no, every record-creation bug is permanent: raise severity
 LOCAL_CI             = option local_checks (empty if not configured → discover from package.json scripts, Makefile, pyproject, .github/workflows)
 MAX_FILE_BYTES       = 1000000
-NEVER_STAGE          = env files ((^|/)\.env(\.|$)), key files, exported tokens, local DB dumps, review reports, .claude/.cache/ (the hooks' cache dir), Playwright auth state (storageState|\.auth/)
+NEVER_STAGE          = env files ((^|/)\.env(\.|$)), key files, exported tokens, local DB dumps, review reports, .claude/worktrees/ (agent worktrees), .claude/.cache/ (the hooks' cache dir), Playwright auth state (storageState|\.auth/)
 DEMO_BRANCH          = option demo_branch (empty if not configured)   # never a PR base or head; never reviewed by this gate — /dimi:poc there
 DEMO_MARKER          = option demo_marker (default DEMO-ONLY)                 # gates grep the shape <MARKER>( — section 3
 

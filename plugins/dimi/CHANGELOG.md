@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.5.0 - 2026-10-26
+
+Fixes from a second run of every hook, skill and agent against scratch repos with the plugin loaded headlessly.
+
+- Agent worktrees: the `implementer` agent's worktrees live under `.claude/worktrees/` until removed, and leaked into the review diff, the Stop gate's changed files, the tree fingerprint and the session banner. Those paths are now skipped everywhere `.claude/.cache/` is (`LOCAL_STATE_RE` in `scripts/lib.sh`); `review.sh gates` lists leftover agent worktrees with the removal command; the agent returns its worktree path and the cleanup line; the per-repo starter adds `.claude/worktrees/` to `.gitignore`.
+- PostToolUse formatter: `ruff check --fix` no longer removes unused imports (`--unfixable F401`), so an import added in one edit survives until the edit that uses it. Prettier is detected from a config in the edited file's folder or any parent up to the project (a monorepo package with its own config was skipped).
+- Stop gate: Python lint blocks only on findings at lines the change added (read from `path:line:col` or ruff's `--> path:line:col`); findings that predate the change in a touched file are reported once as a warning. Output that names no file falls back to blocking as before. Debug-leftover lines are listed once when two patterns match.
+- Bash guard: a `git checkout <branch>` / `git switch <branch>` earlier in the same command sets the branch the later checks use, so `git checkout main && git push` is blocked.
+- `review.sh build` falls back to the local default branch when the repository has no `origin` (the review skills and the `reviewer`/`verifier` agents stopped).
+- `client-profile`: the plugin-repository check matches the remote's last path component (`…/dimi-skills(.git)`), not any URL containing the text.
+- `refresh-harness`: names its commit message and says how the ticket-key guard is turned off for this repository; it stops and asks instead of committing around the guard.
+- Agents: `debugger` proves the revert with a patch of its own hunks instead of stashing whole files (which took the author's uncommitted work in the same file); `verifier` drives UI checks through the repo's Playwright from Bash (it has no browser tool) and removes run artefacts; `spec-writer` removes run artefacts; `reviewer` lists `review.sh` among its allowed commands; `debugger`'s description is valid YAML.
+
 ## 1.4.0 - 2026-10-25
 
 Fixes from an audit that ran every hook against scratch repos and invoked every skill headlessly with the plugin loaded.

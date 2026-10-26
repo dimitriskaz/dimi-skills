@@ -2,7 +2,7 @@
 # The mechanical steps of a review, one plain command each, so the review skills can pre-approve them
 # (`Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/*)`; a command that expands a variable cannot be pre-approved).
 #   review.sh build <skill> <out or ''> <default_branch> <demo_marker> <demo_branch> <ticket_regex> <local_checks> [PR]
-#   review.sh gates    <Out>                     demo markers, secrets, force-added ignored files, stray untracked files
+#   review.sh gates    <Out>                     demo markers, secrets, force-added ignored files, stray untracked files, leftover agent worktrees
 #   review.sh notes    <Out> '<customer terms>'  working notes in added comments (terms: one a|b regex, or '')
 #   review.sh record   <Out>                     point LATEST at the report once it is written
 #   review.sh worklist <Out>                     put address-review's worklist beside that report
@@ -64,7 +64,9 @@ build() {
   else
     SAFE=$(safe_name "$(branch_name)")
     with_timeout 30 git fetch -q origin "$DB" 2>/dev/null || true
-    BASE=$(git merge-base "origin/$DB" HEAD 2>/dev/null) || { echo "origin/$DB not found: run git fetch origin $DB, or fix the default_branch option" >&2; exit 1; }
+    # origin's default branch > the local one (a repository without a remote) > stop
+    BASE=$(git merge-base "origin/$DB" HEAD 2>/dev/null || git merge-base "$DB" HEAD 2>/dev/null) \
+      || { echo "neither origin/$DB nor a local $DB branch found: run git fetch origin $DB, or fix the default_branch option" >&2; exit 1; }
     change_diff "$BASE" > "$DIFF"                                       # committed + staged + unstaged + untracked
     git status --short > "$OUT/status.txt"
     git log --oneline "$BASE..HEAD" > "$OUT/commits.txt"
@@ -105,6 +107,8 @@ gates() {
       "$(printf '%s\n' "$U" | grep -iE -- "$NEVER_DUMP_RE")"
     section "Untracked working artefacts (plans, notes, reports: never staged)" \
       "$(printf '%s\n' "$U" | grep -iE '(plan|handoff|notes|todo|scratch|review|report|transcript)\.(md|txt)$')"
+    section "Leftover agent worktrees (never staged; remove with git worktree remove <path> once merged)" \
+      "$(git worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p' | grep -F -- "$TOP/.claude/worktrees/")"
   fi
 }
 

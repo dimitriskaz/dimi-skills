@@ -14,13 +14,13 @@ cd "${CLAUDE_PROJECT_DIR:-.}" 2>/dev/null || exit 0
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
 cd "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || exit 0   # same project key as stop-check.sh
 
-. "$HERE/lib.sh" 2>/dev/null || exit 0   # project_key
+. "$HERE/lib.sh" 2>/dev/null || exit 0   # project_key, LOCAL_STATE_RE
 PROJ_KEY=$(project_key)
 STATE_DIR="${CLAUDE_PLUGIN_DATA:-.claude/.cache}"
 NOTES="$STATE_DIR/sessions/$PROJ_KEY.log"; mkdir -p "$(dirname "$NOTES")" 2>/dev/null || exit 0
 
 BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD 2>/dev/null || echo "?")
-N_CHANGED=$( { git diff --name-only HEAD 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null; } | grep -v '^\.claude/\.cache/' | grep -c . || true)
+N_CHANGED=$( { git diff --name-only HEAD 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null; } | grep -vE -- "$LOCAL_STATE_RE" | grep -c . || true)
 LAST=""
 # The Stop hook leaves the first line of the last assistant message; consume it so a later session that ends
 # before any Stop does not report this session's message as its own.

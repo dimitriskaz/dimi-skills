@@ -26,14 +26,22 @@ bin() {
   fi
 }
 
-# Prettier is adopted when it is installed locally or the repo carries a config for it.
+# Prettier is adopted when it is installed locally or a config for it sits in the file's folder or any parent up to
+# the project dir (a monorepo package can carry its own config).
 prettier_adopted() {
   [ -x node_modules/.bin/prettier ] && return 0
-  local c
-  for c in .prettierrc .prettierrc.json .prettierrc.yaml .prettierrc.yml .prettierrc.json5 .prettierrc.js .prettierrc.cjs .prettierrc.mjs .prettierrc.toml prettier.config.js prettier.config.cjs prettier.config.mjs .prettierrc.ts prettier.config.ts; do
-    [ -f "$c" ] && return 0
+  local c d proj; proj=$(pwd -P)
+  d=$(cd "$(dirname "$FILE")" 2>/dev/null && pwd -P) || d=$proj
+  case "$d/" in "$proj"/*) ;; *) d=$proj ;; esac                 # a file outside the project: look at the project only
+  while :; do
+    [ -x "$d/node_modules/.bin/prettier" ] && return 0
+    for c in .prettierrc .prettierrc.json .prettierrc.yaml .prettierrc.yml .prettierrc.json5 .prettierrc.js .prettierrc.cjs .prettierrc.mjs .prettierrc.toml prettier.config.js prettier.config.cjs prettier.config.mjs .prettierrc.ts prettier.config.ts; do
+      [ -f "$d/$c" ] && return 0
+    done
+    [ -f "$d/package.json" ] && jq -e '.prettier != null or (.devDependencies.prettier // .dependencies.prettier) != null' "$d/package.json" >/dev/null 2>&1 && return 0
+    [ "$d" = "$proj" ] || [ "$d" = / ] && break
+    d=$(dirname "$d")
   done
-  [ -f package.json ] && jq -e '.prettier != null or (.devDependencies.prettier // .dependencies.prettier) != null' package.json >/dev/null 2>&1 && return 0
   return 1
 }
 
@@ -59,7 +67,8 @@ case "$FILE" in
   *.py)
     if command -v ruff >/dev/null 2>&1; then
       with_timeout 20 ruff format -q --force-exclude "$FILE" >/dev/null 2>&1 || true
-      with_timeout 20 ruff check -q --fix --force-exclude "$FILE" >/dev/null 2>&1 || true
+      # --unfixable F401: an import added in one edit and used in the next must not be deleted in between.
+      with_timeout 20 ruff check -q --fix --unfixable F401 --force-exclude "$FILE" >/dev/null 2>&1 || true
     fi
     ;;
 esac

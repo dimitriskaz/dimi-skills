@@ -77,7 +77,7 @@ fi
 
 # Base: origin's default branch > the local default branch (no remote yet) > HEAD (uncommitted work only)
 BASE=$(git merge-base "origin/$DEFAULT_BRANCH" HEAD 2>/dev/null || git merge-base "$DEFAULT_BRANCH" HEAD 2>/dev/null || git rev-parse HEAD 2>/dev/null)
-CHANGED=$( { git -c core.quotePath=false diff --name-only "$BASE" 2>/dev/null; git -c core.quotePath=false ls-files --others --exclude-standard; } | grep -v '^\.claude/\.cache/' | sort -u )
+CHANGED=$( { git -c core.quotePath=false diff --name-only "$BASE" 2>/dev/null; git -c core.quotePath=false ls-files --others --exclude-standard; } | grep -vE -- "$LOCAL_STATE_RE" | sort -u )
 [ -z "$CHANGED" ] && exit 0
 
 # Signature of the current tree (content of every changed path, hashed by one git process); skip if the
@@ -128,7 +128,7 @@ PY_FILES=$(printf '%s\n' "$CHANGED" | grep -E '\.py$' || true)
 LEFT=$( { grep_added "$JS_TEST" '(\.only\(|(^|[^[:alnum:]_$])fdescribe\(|(^|[^.[:alnum:]_$])fit\()'
           grep_added "$JS" '^[[:space:]]*debugger([^[:alnum:]_$]|$)'
           grep_added '\.py$' '(^|[^[:alnum:]_])breakpoint\(\)'
-          grep_added '\.(ts|tsx|js|jsx|mjs|cjs|py)$' '(^|[^[:alnum:]_])DBG-[A-Za-z0-9_-]+'; } | head -8 || true)
+          grep_added '\.(ts|tsx|js|jsx|mjs|cjs|py)$' '(^|[^[:alnum:]_])DBG-[A-Za-z0-9_-]+'; } | awk '!seen[$0]++' | head -8 || true)
 if [ -n "$LEFT" ]; then add_reason "Debug leftovers (remove before stopping)" "$LEFT"; HARD_FAIL=1; fi
 
 # 2. Typecheck, scoped to the packages whose TypeScript changed, serially, under a budget
@@ -213,7 +213,23 @@ if [ -n "$PY_LINT_CMD" ] && [ -n "$PY_MATCH" ]; then
     OUT=$(run_with_timeout "$LEFT_S" "$PY_RUN" 2>&1); RC=$?
     if [ $RC -eq 124 ]; then timed_out python-lint "python lint" "$LEFT_S" "$PY_LINT_BUDGET_S"
     elif [ $RC -eq 127 ]; then add_skipped "python lint (command not found)"
-    elif [ $RC -ne 0 ]; then add_reason "Python lint failed: $PY_SHOW (last 40 lines)" "$(printf '%s\n' "$OUT" | tail -40)"; HARD_FAIL=1
+    elif [ $RC -ne 0 ]; then
+      # Block only on findings at lines this change added: lint that predates the change in a touched file is not
+      # this change's to fix, and blocking on it would block every turn. Findings are read as path:line:col
+      # (concise output) or "--> path:line:col" (ruff's full output), paths from the top level; when the output names
+      # no existing file that way (another linter, a command run from a subfolder), it blocks as a whole, as before.
+      LOCS=$(printf '%s\n' "$OUT" | sed -nE 's/^[[:space:]]*(-->[[:space:]]+)?([^:[:space:]][^:]*):([0-9]+):[0-9]+.*/\2:\3/p' \
+        | while IFS= read -r l; do [ -f "${l%:*}" ] && printf '%s\n' "$l"; done | sort -u)
+      if [ -z "$LOCS" ]; then
+        add_reason "Python lint failed: $PY_SHOW (last 40 lines)" "$(printf '%s\n' "$OUT" | tail -40)"; HARD_FAIL=1
+      else
+        NEW_LOCS=$(printf '%s\n' "$ADDED" | awk -F: 'NR == FNR { if ($0 != "") want[$0] = 1; next } (($1 ":" $2) in want) { print $1 ":" $2 }' <(printf '%s\n' "$LOCS") - | sort -u)
+        if [ -n "$NEW_LOCS" ]; then
+          add_reason "Python lint failed on lines this change added: $(printf '%s\n' "$NEW_LOCS" | head -10 | tr '\n' ' ')($PY_SHOW, last 40 lines)" "$(printf '%s\n' "$OUT" | tail -40)"; HARD_FAIL=1
+        else
+          add_skipped "python lint ($(printf '%s\n' "$LOCS" | grep -c .) finding(s) that predate this change in touched files, not blocking: $(printf '%s\n' "$LOCS" | head -3 | tr '\n' ' '))"
+        fi
+      fi
     fi
   fi
 fi
