@@ -29,12 +29,12 @@ Every tool is presented to the model as a name, a description and a JSON Schema 
 
 **Design rules for tools the model can use well**
 
-1. **Name and describe for the model, not for a developer.** Say what the tool does, when to use it, when not to, and what each argument means, with an example value.
+1. **Name and describe for the model, not for a developer.** For MCP tool names, follow check D1 in `${CLAUDE_PLUGIN_ROOT}/skills/harden-mcp/references/checklist.md`. Say what the tool does, when to use it, when not to, and what each argument means, with an example value.
 2. **Prefer fewer, higher-level tools.** One `schedule_meeting` tool beats separate tools for checking calendars, finding slots and sending invites.
 3. **Constrain arguments.** Use enums, formats, ranges and required fields so invalid calls fail validation before they run.
 4. **Return only what the model needs.** Paginate, truncate, and return IDs plus key fields rather than whole records.
 5. **Return actionable errors.** Say what was wrong and how to fix it.
-6. **Make writes safe.** Stable idempotency keys (see failure recovery in Part 1), dry-run modes and approval gates for anything irreversible.
+6. **Make writes safe.** Stable idempotency keys (see failure recovery in Part 1), dry-run modes, and writes as human-accepted proposals by default: a reversible write runs without approval only when the client profile explicitly allows it, with a sample reviewed afterwards; anything irreversible always needs approval.
 7. **Scope permissions tightly.** When a user is present, act with their delegated (on-behalf-of) permissions; for autonomous runs, use a dedicated least-privilege agent identity. Never use a shared, over-privileged account (Part 5).
 8. **Test tools like APIs, then evaluate them like prompts.** Unit-test the code, and run evals to check the model picks the right tool with the right arguments.
 
@@ -95,7 +95,7 @@ Official extensions add capabilities outside the core ([MCP](https://modelcontex
 - **SSRF and local compromise**: block private IP ranges for servers that fetch URLs; show the full launch command and sandbox local servers.
 - **Supply chain**: malicious MCP packages have shipped on npm, such as postmark-mcp in September 2025 ([Cloud Security Alliance](https://labs.cloudsecurityalliance.org/research-rb/csa-whitepaper-mcp-security-tool-poisoning-20260506-csa-styl/)). OWASP now maintains an MCP Top 10, currently in beta ([OWASP](https://owasp.org/www-project-mcp-top-10/)).
 
-Mitigations that hold up: run only vetted servers from an internal allowlist, route remote MCP through a gateway that enforces auth, logging and rate limits, sandbox local servers, require approval for write tools, and log every tool call with its arguments. Real gateways include the open-source [Docker MCP Gateway](https://docs.docker.com/ai/mcp-gateway/), [Bedrock AgentCore Gateway](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway.html), [Cloudflare MCP Server Portals](https://developers.cloudflare.com/cloudflare-one/access-controls/ai-controls/mcp-portals), [Kong's MCP plugins](https://developer.konghq.com/mcp/), [Azure API Management](https://learn.microsoft.com/en-us/azure/api-management/mcp-server-overview) and [microsoft/mcp-gateway](https://github.com/microsoft/mcp-gateway) for Kubernetes.
+Mitigations that hold up: run only vetted servers from an internal allowlist, route remote MCP through a gateway that enforces auth, logging and rate limits, sandbox local servers, make write tools human-accepted proposals by default (design rule 6), and log every tool call with its arguments. Real gateways include the open-source [Docker MCP Gateway](https://docs.docker.com/ai/mcp-gateway/), [Bedrock AgentCore Gateway](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway.html), [Cloudflare MCP Server Portals](https://developers.cloudflare.com/cloudflare-one/access-controls/ai-controls/mcp-portals), [Kong's MCP plugins](https://developer.konghq.com/mcp/), [Azure API Management](https://learn.microsoft.com/en-us/azure/api-management/mcp-server-overview) and [microsoft/mcp-gateway](https://github.com/microsoft/mcp-gateway) for Kubernetes.
 
 **Scaling to many tools**
 

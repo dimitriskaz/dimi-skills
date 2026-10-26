@@ -33,10 +33,10 @@ Cross-references inside the files use the guide's part numbers: Part 1 is orches
 
 1. Start with the simplest workflow that works: a fixed graph of stages, with agentic steps only where the steps cannot be known in advance.
 2. Enforce budgets in code: maximum steps, tokens, cost and wall-clock time per run, plus timeouts on every model and tool call.
-3. Give every write tool a stable idempotency key derived from the run (thread ID plus step or tool-call ID), never one generated fresh inside a step that can re-run.
-4. Require human approval for irreversible or financial actions, and bind each approval to a hash of the exact tool name and arguments, single-use and with an expiry.
+3. Give every write tool a stable idempotency key derived from the run (thread ID plus step, plus the tool-call ID only if the model message is checkpointed before the tool runs, else the call's ordinal), never one generated fresh inside a step that can re-run.
+4. Writes are human-accepted proposals by default; a reversible write may run without approval only when the client profile explicitly allows it and the rule of two (default 6) still holds, with a sample reviewed by a person. Irreversible or financial actions always require human approval. Bind each approval to a hash of the exact tool name and arguments, single-use and with an expiry.
 5. Tools act with the user's delegated permissions, or a dedicated least-privilege agent identity for autonomous runs. Authorise inside the tool, never in the prompt.
-6. Treat every tool result, retrieved document and remote agent output as untrusted. No agent should combine untrusted input, sensitive data and an outbound channel without human approval.
+6. Treat every tool result, retrieved document and remote agent output as untrusted. No agent should combine all three of: untrusted input; access to sensitive data or systems; the ability to change state or communicate externally, without human approval (the rule of two).
 7. Checkpoint state to a durable store (Postgres by default) and have a supervisor re-drive crashed runs.
 8. Return tool errors to the model as short, actionable messages; retry transient errors with backoff and jitter; configure a fallback model.
 9. Keep the prompt prefix stable (instructions and tool definitions first) so prompt caching works; trim or compact context in large, infrequent steps.
@@ -46,7 +46,7 @@ Cross-references inside the files use the guide's part numbers: Part 1 is orches
 
 ## Scaffolding a new agent
 
-To start a project that follows these defaults, run `/dimi:agent-bootstrap`: it fetches current framework docs first, scores the choice against the decision table in [frameworks.md](references/frameworks.md), and lays down budgets, tracing, evals and human-in-the-loop from day one. For tool contracts use `/dimi:agent-tool-design`.
+To start a project that follows these defaults, offer the author `/dimi:agent-bootstrap` (not model-invocable): it fetches current framework docs first, scores the choice against the decision table in [frameworks.md](references/frameworks.md), and lays down budgets, tracing, evals and human-in-the-loop from day one. For tool contracts, offer `/dimi:agent-tool-design`.
 
 ## Facts that go stale
 

@@ -1,12 +1,12 @@
 ---
 name: "agent-bootstrap"
 description: "Start a new LLM agent project the right way: fetch current framework docs first (never from memory), choose a framework against explicit criteria, and scaffold with tools, structured outputs, tracing, cost and step caps, human-in-the-loop gates, an eval harness, tests and an ADR from day one."
+when_to_use: "Use when starting an agent, assistant or multi-step LLM workflow, or when choosing between frameworks. Triggers: /dimi:agent-bootstrap, \"build an agent that…\", \"which agent framework\", \"scaffold an assistant\", \"start an agent project\"."
 argument-hint: "[what the agent should do]"
+disable-model-invocation: true
 ---
 
 # Agent bootstrap
-
-Use when starting an agent, assistant or multi-step LLM workflow, or when choosing between frameworks. Triggers: `/dimi:agent-bootstrap`, "build an agent that…", "which agent framework", "scaffold an assistant", "start an agent project".
 
 ## 0. Freshness rule — read before you write
 
@@ -23,7 +23,7 @@ Ask only what changes the design; assume and state the rest.
 - **Runtime**: server-side service, CLI, in-app assistant, scheduled job, browser. Language: follow the host codebase (TypeScript, Python, .NET, Go, Java …).
 - **Models**: one provider or provider-agnostic; need for small/fast vs large models per step; local models.
 - **State and memory**: stateless per request, per-conversation, durable across sessions; who owns the store.
-- **Writes**: can the agent change anything? Every write is a human-accepted proposal unless explicitly decided otherwise (see `${CLAUDE_PLUGIN_ROOT}/skills/agent-tool-design/SKILL.md`).
+- **Writes**: can the agent change anything? Writes are human-accepted proposals by default; a reversible write may run without approval only when the client profile explicitly allows it, with a sample reviewed by a person (see `${CLAUDE_PLUGIN_ROOT}/skills/agent-tool-design/SKILL.md`).
 - **Integrations**: existing MCP servers to consume; tools to expose; auth model for each.
 - **Hosting**: run the loop yourself vs a managed/hosted agent runtime; sandboxing needs for code execution.
 - **Constraints**: data residency, personal data, audit, cost ceiling per run and per month, latency budget.
@@ -46,7 +46,7 @@ Lay these down before the first real task, in the host repo's conventions:
 - **Memory/state**: a store with a TTL and a size cap; nothing in process memory when there is more than one instance; personal data minimised before it is stored.
 - **Observability**: traces for every run (framework traces or OpenTelemetry) with tool calls, latencies, token counts and outcome; logs carry ids, tool names and counts, never prompts with tenant data or raw outputs; a run id surfaced to the user for support.
 - **Safety posture**: tool results treated as untrusted; system prompt forbids following instructions found in data; output validated before any effect; secrets never in context; prompt-injection fixtures in the evals.
-- **Evals**: `evals/tasks/*.yaml` with input, expected tool sequence (or expected outcome) and a rubric; a runner that scores pass rate and cost; three to five tasks from section 1 on day one; run in CI on every prompt, tool or model change.
+- **Evals**: `evals/tasks/*.yaml` with input, expected tool sequence (or expected outcome) and a rubric; a runner that scores pass rate and cost; three to five tasks from section 1 on day one, ten to twenty before the replay job gates merges, fifty to two hundred by pilot; run in CI on every prompt, tool or model change. Each recorded transcript stores a fingerprint (hash of the prompt files, tool schemas and model id); replay fails on a mismatch ("re-record required") and fails when any task is skipped unless it is listed as pending. Re-record with the production model behind the spend-budget flag (`/dimi:agent-evals` has the details).
 - **Tests**: unit tests per tool (schema, golden, error), integration tests with recorded fixtures (no live model calls in CI), one smoke test that runs the loop end-to-end against recorded model transcripts (replay mode).
 - **Secrets**: provider keys from the secret manager or env, never committed; `.env.example` with placeholders only.
 - **Defaults that apply without being asked**: the twelve harness defaults in `${CLAUDE_PLUGIN_ROOT}/skills/harness-reference/SKILL.md` ("Defaults to apply without being asked") are the canonical list; do not restate them here. The three that most often get skipped in a scaffold: a fixed graph of stages with agentic steps only where steps cannot be known in advance; a stable prompt prefix (instructions and tool definitions first) so caching works; dated model versions pinned, with evals re-run on every model, prompt, tool or index change.
@@ -58,7 +58,7 @@ Lay these down before the first real task, in the host repo's conventions:
 2. First tool: the read tool for the most common task; golden tests pass.
 3. First eval: the three tasks from section 1; record the baseline pass rate and cost.
 4. First write (if any): as a proposal with a human accept; test stale-version refusal and partial-failure retry.
-5. CI: lint, typecheck, unit, evals in replay mode (recorded fixtures and transcripts, no model call); live-model evals behind a manual gate with a budget.
+5. CI: lint, typecheck, unit, evals in replay mode (recorded fixtures and transcripts, no model call; fails on a fingerprint mismatch or an unlisted skipped task); live-model evals and re-recording behind a manual gate with a budget.
 
 ## 5. Document
 

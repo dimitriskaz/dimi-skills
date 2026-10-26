@@ -1,7 +1,8 @@
 ---
 name: "pr-self-review"
-description: "Pre-commit / pre-push self-review of your working tree (or an open PR) that runs the same three-stage gate your team's reviewers use — repo-policy compliance, correctness/scalability/conventions, security/data-handling — and writes a reviewer-style report with Blocker / Should fix / Minor findings plus commit-message and PR-description drafts."
+description: "Pre-commit / pre-push self-review of your working tree (or an open PR) that runs the same four-stage gate your team's reviewers use — repo-policy compliance, correctness/scalability/conventions, security/data-handling, plus agent/MCP domain reviews when they apply — and writes a reviewer-style report with Blocker / Should fix / Minor findings plus commit-message and PR-description drafts."
 argument-hint: "[#pr | branch | nothing = working tree]"
+allowed-tools: Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(grep *)
 ---
 
 # Self-review before commit and push
@@ -59,39 +60,32 @@ Every finding gets **severity · category · confidence**. Categories: `correctn
 
 **Stack mode.** Several PR numbers or a range: see Appendix A. Rare; do not optimise for it.
 
-Before judging anything, read the repo rules: `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, `.github/PULL_REQUEST_TEMPLATE*`, and the job names and commands in `.github/workflows/*.yml`. They are authoritative; the Repo policy block in [references/diff-and-policy.md](references/diff-and-policy.md) §4 is the starting point to edit. If `$TOP/.claude/fde-client-profile.md` exists (an engagement profile; read it from the top level, not the cwd), its risk tiers, data classes and approval rules adjust severities; profile severities map Critical or High → Blocker, Medium → Should fix, Low → Minor.
+Before judging anything, read the repo rules: `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, `.github/PULL_REQUEST_TEMPLATE*`, and the job names and commands in `.github/workflows/*.yml`. They are authoritative; the Repo policy block in [references/diff-and-policy.md](references/diff-and-policy.md) §4 is resolved from them at run time — repo values go in the repo's `CLAUDE.md`/`AGENTS.md` (or `.claude/rules/`), never in the plugin's copy. If `<Top>/.claude/fde-client-profile.md` exists (an engagement profile; read it from the top level, not the cwd), its risk tiers, data classes and approval rules adjust severities; profile severities map as in stage 4 above.
 
 ## 3. Setup
 
-`$OUT` is the session's scratchpad directory if it gives one (set `OUT=<scratchpad path>` on the line before the block below), else `$TOP/../self-review-<repo>/` next to the checkout — absolute, never inside the repo, whatever the current directory. Never write review files inside the checkout; keep the repo's own `.gitignore` untouched.
+Output goes to the session's scratchpad directory if it gives one, else `<top>/../self-review-<repo>/` next to the checkout — absolute, never inside the repo. Never write review files inside the checkout; keep the repo's own `.gitignore` untouched.
 
-Resolve the plugin options once, here, in the first bash block (they are substituted into this skill when it loads; the reference file cannot see them):
+The mechanical steps run as one plain command each, so they need no approval prompt. Build the diff first — put the scratchpad path in the second argument (or leave `''`), and in PR mode append the PR number:
 ```bash
-TOP=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "not a git repository" >&2; exit 1; }
-REPO=$(basename "$TOP"); SAFE=$(git rev-parse --abbrev-ref HEAD | tr '/' '-')      # PR mode: SAFE=pr-$N
-DB='${user_config.default_branch}'; case "$DB" in '$'*) DB='';; esac; [ -z "$DB" ] && DB=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||'); DB=${DB:-main}
-M='${user_config.demo_marker}'; case "$M" in ''|'$'*) M=DEMO-ONLY;; esac
-DEMO='${user_config.demo_branch}'; case "$DEMO" in '$'*) DEMO='';; esac
-TR='${user_config.ticket_regex}'; case "$TR" in ''|'$'*) TR='[A-Z][A-Z0-9]+-[0-9]+';; none|NONE) TR='';; esac
-LOCAL_CI='${user_config.local_checks}'; case "$LOCAL_CI" in '$'*) LOCAL_CI='';; esac
-OUT=${OUT:-$TOP/../self-review-$REPO}; mkdir -p "$OUT"; OUT=$(cd "$OUT" && pwd -P)
-LATEST="$TOP/../self-review-$REPO/LATEST"
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/review.sh build self-review '' '${user_config.default_branch}' '${user_config.demo_marker}' '${user_config.demo_branch}' '${user_config.ticket_regex}' '${user_config.local_checks}'
 ```
+`build` saves the context to `<Out>/context.env` and prints a **Review context** block — `Top`, `Out`, `Diff`, `Base`, `Head` (PR mode: the fetched PR head ref; local mode: `working tree`), `Report`, the default branch, demo marker, demo branch, ticket regex and local checks — then the scope line and the report header line (`Branch: … · HEAD: … · Tree: …`). Every later `review.sh` step (`gates`, `notes`, `record`) takes **only the printed `Out` path**. Write those values **literally** into every later command (`grep -nE '…' <Diff>`; per file, local mode `git diff <Base> -- <path>`, PR mode `git diff <Base> <Head> -- <path>` and `git show <Head>:<path>`): each Bash call is a fresh shell, and a command that expands a variable cannot be pre-approved.
 
 ### Local mode
-Run §1 of [references/diff-and-policy.md](references/diff-and-policy.md). It writes `$DIFF` (`$OUT/review.diff`: committed + staged + unstaged, plus untracked files via `--no-index`), `status.txt`, `commits.txt`, `untracked.txt`, `review.stat`, `behind.txt`, `main-moved.txt`, and sets `$BASE`. It stops with a message when `origin/$DB` is missing: tell the author (fetch, or fix the `default_branch` option) instead of reviewing a partial diff. `$DIFF` is the diff every stage reads. Binary files appear as "Binary files differ": count them, never open them.
+`build` writes the diff (committed + staged + unstaged, plus untracked files except secret and state files such as `.env*`, keys and `*.tfstate`, whose content is never written to it; `gates` lists their names) and `status.txt`, `commits.txt`, `untracked.txt`, `review.stat`, `behind.txt`, `main-moved.txt` into `Out`. It stops with a message when `origin/<default branch>` is missing: tell the author (fetch, or fix the `default_branch` option) instead of reviewing a partial diff. The diff is what every stage reads. Binary files appear as "Binary files differ": count them, never open them.
 
-Tell the author up front what the review covers: N commits, M staged, K unstaged, U untracked files — so they know what `git add -A` would sweep in. Untracked files that are **not** part of the change (scratch notes, `.env*`, exports, review reports, `.claude/.cache/`, Playwright auth state matching `storageState|\.auth/`) are a gate finding, not part of the review.
+Tell the author up front what the review covers (the scope line: N commits, M staged, K unstaged, U untracked) — so they know what `git add -A` would sweep in. Untracked files that are **not** part of the change (scratch notes, `.env*`, exports, review reports, `.claude/.cache/`, Playwright auth state) are a gate finding, not part of the review.
 
 ### PR mode
-Set `N=<number>` and `SAFE=pr-$N` on the line before, then run §2 of the same file: `gh pr view` and `gh pr checks` into `$OUT`, then the three-dot diff `origin/<base>...origin/<head>` into `$DIFF` (this PR's own changes only; `gh pr diff` when the head lives on a fork).
+Run `build` with the PR number appended. It writes `pr.json` and `checks.txt` into `Out` and the PR's own changes (three-dot, head fetched as `pull/<N>/head`, so fork PRs work; `gh pr diff` when the remote has no pull refs) into the diff, and prints the report header line from GitHub. Read the PR's code at `Head` (`git diff <Base> <Head> -- <path>`, `git show <Head>:<path>`), never the local working tree.
 
 ### Budget
 - **Proportional depth.** The gate must not become the slow part. Under ~150 changed lines of code: run the compliance checks, apply only the lenses for the layers actually touched, no sub-agents, and aim to finish in a few minutes; the report can be short. 150–2,000 lines: full lenses, still in this session. Over ~2,000: delegate as below. A small diff with a long review is a sign the review is padding.
 - **Local checks run one at a time**, scoped to the touched packages (`cd <pkg> && <pm> run …`, with the package manager the repo uses). Never launch two heavy commands in parallel shells and never fork agents to run checks; parallel Node processes fight for CPU and both get slower.
 - Reading order by risk: routes/endpoints → data access and query builders → connectors/outbound calls → jobs/workers → schema, seeds, contracts → model/view-model code → UI → tests and fixtures → docs. Binaries are counted only.
-- Read the diff per file (`git diff $BASE -- path`), and for any hunk you doubt read the **whole function and its callers** in the working tree. Hunks alone produce lint, not review.
-- Over ~2,000 changed lines of code: run stages 2 and 3 as two `reviewer` agents in parallel, each given `$DIFF`, the resolved policy block, the `SCALE` line and the interchange format (section 7), returning finding blocks. Tell each that the compliance gate has already run lint, typecheck and tests, so it must **not** run them (two parallel heavy checks fight for CPU). Spot-check two CONFIRMED findings from each before accepting.
+- Read the diff per file (`git diff <Base> -- <path>`; PR mode `git diff <Base> <Head> -- <path>`), and for any hunk you doubt read the **whole function and its callers** in the working tree (PR mode: `git show <Head>:<path>`). Hunks alone produce lint, not review.
+- Over ~2,000 changed lines of code: run stages 2 and 3 as two `reviewer` agents in parallel, one told "stage 2 only" (`pr-correctness-scalability-review`), the other "stage 3 only" (`pr-security-data-review`), each given the `Diff` path (PR mode: also `Base` and `Head`), the resolved policy block, the `SCALE` line and the interchange format (section 7), returning finding blocks. Tell each that the compliance gate has already run lint, typecheck and tests, so it must **not** run them (two parallel heavy checks fight for CPU). Spot-check two CONFIRMED findings from each before accepting.
 
 ## 4. Understand before judging
 
@@ -103,24 +97,25 @@ Output: a table `Rule | Status | Detail`. **Pass** meets policy. **Fail** blocks
 
 ### Repo policy (resolved per repo; AGENTS.md/CLAUDE.md win)
 
-The block lives in [references/diff-and-policy.md](references/diff-and-policy.md) §4: ticket format, forbidden paths, customer terms, ratchets, escape hatches, debug leftovers, required tests, forbidden deps, evidence dir, records deletable, local checks, never-stage list, demo branch and marker, and the `SCALE` line. Read it once, fill the *repo* values from `CLAUDE.md`/`AGENTS.md`, and print the resolved block at the top of the report. The *option* values are the `$DB`, `$M`, `$DEMO`, `$TR`, `$LOCAL_CI` resolved in section 3.
+The block lives in [references/diff-and-policy.md](references/diff-and-policy.md) §4: ticket format, forbidden paths, customer terms, ratchets, escape hatches, debug leftovers, required tests, forbidden deps, evidence dir, records deletable, local checks, never-stage list, demo branch and marker, and the `SCALE` line. Read it once, fill the *repo* values from `CLAUDE.md`/`AGENTS.md`, and print the resolved block at the top of the report. The *option* values are the ones `build` printed in the Review context (section 3).
 
 ### Checks — local mode
 
-- **Demo branch** — `[ -n "$DEMO" ] && [ "$(git rev-parse --abbrev-ref HEAD)" = "$DEMO" ]` → **Fail** and stop: the demo branch is never reviewed by this gate; `/dimi:poc` keeps it honest and `/dimi:port` brings work to production. Skip when `$DEMO` is empty.
-- **Base freshness** — commits behind `origin/$DB` (`behind.txt`); files in `main-moved.txt` that this change also touches (conflict and semantic-drift risk). Behind with overlap → Note "rebase before push".
-- **Branch name** carries `$TR` (skip when `$TR` is empty: the regex was set to `none`).
+- **Mechanical gates first** — run `bash ${CLAUDE_PLUGIN_ROOT}/scripts/review.sh gates '<Out>'`. It lists demo-only markers in the added lines (excluding `.claude/**`, `CLAUDE.md`, `AGENTS.md`, which name the marker), secret-shaped added lines (values masked), added files that match an ignore rule (force-added), and untracked secret/state files and working artefacts. A marker or a force-added ignored file → **Fail**; a secret → stop for a decision; stray untracked files → "do not stage".
+- **Demo branch** — the branch equals the context's demo branch → **Fail** and stop: the demo branch is never reviewed by this gate; `/dimi:poc` keeps it honest and `/dimi:port` brings work to production. Skip when there is none.
+- **Base freshness** — commits behind the default branch (`behind.txt` in `Out`); files in `main-moved.txt` that this change also touches (conflict and semantic-drift risk). Behind with overlap → Note "rebase before push".
+- **Branch name** carries the ticket regex (skip when it is disabled).
 - **Commits so far** — each headline matches `COMMIT_FORMAT` and carries the key. If the working tree is uncommitted, draft the commit message(s) in section 9 and check them against the format.
 - **One change per commit** — if the diff holds several separable features (new route + UI + refactor + fixture churn), propose a commit split now, while it is cheap: list files per proposed commit with a headline each.
-- **What `git add -A` would sweep in** — go through `untracked.txt` and `status.txt`: review reports, `.env*`, scratch scripts, exports, local DB dumps, `.claude/.cache/`, Playwright auth state (`storageState|\.auth/`), IDE files, files over `MAX_FILE_BYTES`, generated files, evidence PNGs for *other* specs. Each is a Fail ("do not stage") or Note.
-- **Forbidden paths and ignored files** — nothing under `FORBIDDEN_PATHS`; `git diff --name-only --diff-filter=A $BASE | xargs -r git check-ignore -v --no-index` and `git diff --cached --name-only | xargs -r git check-ignore -v --no-index` (without `--no-index`, tracked and staged paths are never reported) — a staged or committed ignored file was force-added → Fail.
-- **Ratchets only go down** — `git diff --name-only $BASE` touches no `RATCHET_BASELINES`; `grep -nE '^\+' $DIFF | grep -nE '<ESCAPE_HATCHES>'` adds none, or each is listed with its justification.
-- **Working notes in code** — grep the added lines for comments, docstrings, log strings, test names and identifiers that carry a ticket key, a customer or person, a date, or session narrative ("as discussed", "per the review", "step 3", "added for", "for now"), plus commented-out code and placeholder docstrings. Customer/person references → Fail; the rest → Note with the count. Ask the author to run `/dimi:tidy`, or follow `${CLAUDE_PLUGIN_ROOT}/skills/tidy/SKILL.md` §1–4 inline, before committing — a reviewer should never see the scaffolding.
-- **Demo-only markers** — run §3 of [references/diff-and-policy.md](references/diff-and-policy.md): the `<marker>(` shape over `git diff "$BASE"` (excluding `.claude/**`, `CLAUDE.md`, `AGENTS.md`, which name the marker) plus untracked files. Any hit → **Fail**: a POC shortcut is about to reach the default branch. `/dimi:port` is the way across; hard-coded tenants, ids, fixture data or bypassed gates without the marker are the same Fail under the correctness/security checklists.
-- **Debug leftovers** — `grep -nE '^\+' $DIFF | grep -nE '<DEBUG_LEFTOVERS>'`. `.only` or `debugger` → Fail; new `console.log`/`print` in src → Note unless it is the module's logging convention.
-- **Customer names and data** — `grep -inE '<CUSTOMER_TERMS>' $DIFF` and the untracked list. Also judge content: catalogues or mappings "transcribed from a customer workbook", POC ticket ids inside keys or source refs, fixture org names that look real. History is permanent → Fail.
+- **What `git add -A` would sweep in** — go through `untracked.txt` and `status.txt` (and the gates' untracked lists): review reports, `.env*`, scratch scripts, exports, local DB dumps, `.claude/.cache/`, Playwright auth state (`storageState|\.auth/`), IDE files, files over `MAX_FILE_BYTES`, generated files, evidence PNGs for *other* specs. Each is a Fail ("do not stage") or Note.
+- **Forbidden paths and ignored files** — nothing under `FORBIDDEN_PATHS`; force-added ignored files come from the gates (the files the reviewed diff adds — in PR mode the PR's, not your working tree's) → Fail.
+- **Ratchets only go down** — `git diff --name-only <Base>` (PR mode `<Base> <Head>`) touches no `RATCHET_BASELINES`; `grep -nE '^\+.*(<ESCAPE_HATCHES>)' <Diff>` adds none, or each is listed with its justification.
+- **Working notes in code** — `bash ${CLAUDE_PLUGIN_ROOT}/scripts/review.sh notes '<Out>' '<CUSTOMER_TERMS or empty>'` (the customer terms as one `a|b` regex) lists added comments that carry a ticket key, a customer term or session narrative ("as discussed", "per the review", "step 3", "added for", "for now"); also look for log strings, test names and identifiers that do, commented-out code and placeholder docstrings. Customer/person references → Fail; the rest → Note with the count. Ask the author to run `/dimi:tidy`, or follow `${CLAUDE_PLUGIN_ROOT}/skills/tidy/SKILL.md` §1–4 inline, before committing — a reviewer should never see the scaffolding.
+- **Demo-only markers** — the gates' first list (the `<marker>(` shape `poc` writes, in the added lines). Any hit → **Fail**: a POC shortcut is about to reach the default branch. `/dimi:port` is the way across; hard-coded tenants, ids, fixture data or bypassed gates without the marker are the same Fail under the correctness/security checklists.
+- **Debug leftovers** — `grep -nE '^\+.*(<DEBUG_LEFTOVERS>)' <Diff>`. `.only` or `debugger` → Fail; new `console.log`/`print` in src → Note unless it is the module's logging convention.
+- **Customer names and data** — `grep -inE '<CUSTOMER_TERMS>' <Diff>` and the untracked list. Also judge content: catalogues or mappings "transcribed from a customer workbook", POC ticket ids inside keys or source refs, fixture org names that look real. History is permanent → Fail.
 - **Required tests and evidence** — per `REQUIRED_TESTS`: a spec references the new feature; evidence exists and is fresh (the runner's last-run summary mentions the touched specs); a unit test or selfcheck exists and is wired into the test script.
-- **Run CI's local equivalents** — from `$LOCAL_CI` (else discover from `package.json` scripts, `Makefile`, `pyproject`, `.github/workflows`), run what applies to the changed packages: lint, typecheck, unit tests/selfchecks, and the browser specs for touched features (not the whole suite unless asked). Record each as `ran: pass|fail (duration)` or `not run: <why>`. A failing local check is a Fail. Anything CI runs that you could not run (CodeQL, IaC scan) is listed as "will run in CI".
+- **Run CI's local equivalents** — from the context's local checks (else discover from `package.json` scripts, `Makefile`, `pyproject`, `.github/workflows`), run what applies to the changed packages: lint, typecheck, unit tests/selfchecks, and the browser specs for touched features (not the whole suite unless asked). Record each as `ran: pass|fail (duration)` or `not run: <why>`. A failing local check is a Fail. Anything CI runs that you could not run (CodeQL, IaC scan) is listed as "will run in CI".
 - **Scope hygiene** — binary vs code file counts; evidence re-captured for other specs; unrelated locator tweaks; behaviour changes outside the ticket → Note.
 - **Dependencies** — new entries in `package.json`/lockfiles/`pyproject`/`requirements`: one line each on why; `FORBIDDEN_DEPS` grep on added lines.
 - **Author's description** — if a PR body draft exists (or the author describes the change), does it say what changed and why, how it was tested, what is deferred with tickets? Missing → Note; section 9 drafts it.
@@ -128,7 +123,7 @@ The block lives in [references/diff-and-policy.md](references/diff-and-policy.md
 ### Checks — PR mode (in addition)
 
 - **PR title** matches `COMMIT_FORMAT`; body present and accurate.
-- **Base** is `$DB` (or the previous PR in a stack); three-dot diff holds only this ticket's work. Base **or head** equal to `$DEMO` (when set) → **Fail**: the demo branch never opens or receives PRs; `/dimi:port` brings the work across.
+- **Base** is the default branch (or the previous PR in a stack); three-dot diff holds only this ticket's work. Base **or head** equal to the demo branch (when set) → **Fail**: the demo branch never opens or receives PRs; `/dimi:port` brings the work across.
 - **Draft state matches the body** — body says "draft"/"do not merge yet" while `isDraft=false` → Note.
 - **No self-approval** — `author.login` has no APPROVED review. Name who still needs to approve.
 - **CI** — every run check SUCCESS. List SKIPPED jobs and what they imply ("web build skipped by path filter → no browser e2e ran"). Skipped is not passed.
@@ -136,7 +131,7 @@ The block lives in [references/diff-and-policy.md](references/diff-and-policy.md
 
 ## 6. Verify every finding
 
-- Trace to `path:line` **in the working tree as it is now** (PR mode: at the PR head), and to the other end of the mechanism (caller, consumer, store path, the data-layer doc that says how the read behaves).
+- Trace to `path:line` **in the working tree as it is now** (PR mode: at the PR head, `git show <Head>:<path>`), and to the other end of the mechanism (caller, consumer, store path, the data-layer doc that says how the read behaves).
 - State as **mechanism → consequence → fix**, two to four sentences a reader who has not opened the code can follow.
 - **CONFIRMED** = mechanism traced in code, both ends cited. **PLAUSIBLE** = depends on vendor behaviour, runtime volumes, a lease or config you could not see, or recollection of an external API — name what would confirm it.
 - A Blocker or Should fix that is only PLAUSIBLE keeps its severity and names the confirm step; never downgrade to avoid the work.
@@ -167,13 +162,14 @@ Then `STRENGTHS:` bullets and `CHECKED_CLEAN:` bullets (category — one-line re
 
 ## 8. Report
 
-Write `$OUT/self-review-$SAFE.md` (`$SAFE` from section 3: the branch name with `/` replaced by `-`, or `pr-<N>`). Publish it as an artifact only if the author asks: it quotes the secret-looking lines and customer terms the gate exists to catch. Structure, exactly:
+Write the report to the context's `Report` path (`<Out>/self-review-<branch as one file-name component, or pr-N>.md`). Publish it as an artifact only if the author asks: it quotes the secret-looking lines and customer terms the gate exists to catch. Structure, exactly:
 ```
 # Self-review: <branch or #N> (TICKET) — <title or draft title>
 <repo> · reviewed <date> · local working tree | PR head · gate only, nothing posted
+Branch: … · HEAD: … · Tree: …     # the header line `build` printed, verbatim
 Scope: N commits · M staged · K unstaged · U untracked · +adds/−dels · F files (B binary)
 
-## Verdict: Not ready | Ready with notes   (Blockers B · Should fix S · Minor M)
+## Verdict: Not ready | Ready with notes   (Blockers B · Should fix S · Minor M)   # PR mode: Request changes | Approve with comments
 <One paragraph: what it does, what is right, what is wrong and why it matters.>
 
 ## Findings (K)
@@ -190,15 +186,12 @@ Scope: N commits · M staged · K unstaged · U untracked · +adds/−dels · F 
 ## Strengths
 ## Checked, nothing found
 ```
-Strengths and Checked-nothing-found are mandatory: they show coverage and tell the reviewer where not to spend time. List only what you actually checked.
+The verdict line uses one vocabulary per mode: local mode *Not ready* / *Ready with notes*; PR mode *Request changes* (= Not ready) / *Approve with comments* (= Ready with notes). `commit-push-pr` refuses on *Not ready* and *Request changes* alike, and checks the `Branch:` / `Tree:` line against the branch and tree it commits. Strengths and Checked-nothing-found are mandatory: they show coverage and tell the reviewer where not to spend time. List only what you actually checked.
 
-Then record it as the newest report, **regardless of where `$OUT` is** (`$LATEST` from section 3, defined once in [references/diff-and-policy.md](references/diff-and-policy.md) §4):
-```bash
-mkdir -p "$(dirname "$LATEST")"; printf '%s\n' "$(cd "$OUT" && pwd -P)/self-review-$SAFE.md" > "$LATEST"
-```
+Then record it as the newest report, wherever `Out` is: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/review.sh record '<Out>'` points the checkout's `LATEST` file (`<top>/../self-review-<repo>/LATEST`) at it, and fails with a message when the report is not written yet.
 `commit-push-pr` reads it to refuse pushes over open Blockers; `compound` and `address-review` find the report through it.
 
-**Re-run mode** is keyed on `$LATEST`, never on `$OUT` (a session scratchpad changes every session; the pointer does not). Read `$LATEST`; if it points at an existing report for this branch/PR (same `$SAFE` in the file name), load its finding ids and re-check each: `Fixed` (cite the commit or hunk), `Open`, `Deferred` (cite the ticket). If a `review-worklist.md` sits beside that report (`address-review` writes it there: the reviewer's points in the interchange format, ids `REV-n`), load those too and re-check each the same way. New findings get new ids. Write the new report to `$OUT`, rewrite `$LATEST`, and lead with the delta.
+**Re-run mode** is keyed on `LATEST`, never on `Out` (a session scratchpad changes every session; the pointer does not). `bash ${CLAUDE_PLUGIN_ROOT}/scripts/review.sh latest '${user_config.default_branch}'` prints it; if it points at an existing report for this branch/PR (the same file name as the context's `Report`), load its finding ids and re-check each: `Fixed` (cite the commit or hunk), `Open`, `Deferred` (cite the ticket). If a `review-worklist-<same name part>.md` sits beside that report, or the author points at one (`address-review` writes it there, per branch or PR: the reviewer's points in the interchange format, ids `REV-n`), load those too and re-check each the same way. New findings get new ids. Write the new report to `Report`, run `record` again, and lead with the delta.
 
 ## 9. Fix loop, commit messages, PR description
 
@@ -216,4 +209,4 @@ The report is not finished until its lessons are captured. End by offering `/dim
 
 ## Appendix A — Stacks (rare)
 
-Order PRs by `baseRefName` (each PR's base is the previous head). Review each against **its own base**, never `main`. Review one PR at a time, writing `$OUT/pr-N.md` before starting the next; for more than two PRs, delegate each PR to a `reviewer` agent with the inputs from section 3 and the interchange format. Prepend a stack overview table (`PR | Ticket | Title | Verdict | Blockers | Should fix | Minor | Size`) and a **Themes across the stack** section: the same data in several places; the same cap or read pattern repeated; one metric defined two ways; a key or model fixed early that later PRs build on; copied plumbing; shipped-ahead tools; the same binaries churned in every PR; a claim repeated in every body. Note files a later PR needs that landed earlier, and references to files that only exist later. Merge strictly in stack order.
+Order PRs by `baseRefName` (each PR's base is the previous head). Review each against **its own base**, never `main`. Review one PR at a time, writing `<Out>/pr-N.md` before starting the next; for more than two PRs, delegate each PR to a `reviewer` agent with the inputs from section 3 and the interchange format. Prepend a stack overview table (`PR | Ticket | Title | Verdict | Blockers | Should fix | Minor | Size`) and a **Themes across the stack** section: the same data in several places; the same cap or read pattern repeated; one metric defined two ways; a key or model fixed early that later PRs build on; copied plumbing; shipped-ahead tools; the same binaries churned in every PR; a claim repeated in every body. Note files a later PR needs that landed earlier, and references to files that only exist later. Merge strictly in stack order.

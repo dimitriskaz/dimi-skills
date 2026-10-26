@@ -3,6 +3,7 @@ name: tidy
 description: Clean working notes out of a change before handover — session narrative in comments, ticket and customer references in code, what-comments that restate the code, commented-out code, debug leftovers, placeholder docstrings, scratch files — keeping only comments that explain why. Proves the result is comment-only (no behaviour change). Run before pr-self-review or commit-push-pr.
 argument-hint: "[paths, or nothing = whole working tree change]"
 disable-model-invocation: true
+allowed-tools: Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(grep *)
 ---
 
 # Tidy: remove the scaffolding, keep the load-bearing comments
@@ -13,12 +14,11 @@ Triggers: `/dimi:tidy`, "clean up the comments", "remove the working notes", "ma
 
 ## 0. Scope
 
-Only lines **this change added or modified** (the working tree against the default branch, including untracked files), never the rest of the file — pre-existing comments are a separate conversation. Resolve the options first (they are substituted only in this file), then build the diff with §1 of `${CLAUDE_PLUGIN_ROOT}/skills/pr-self-review/references/diff-and-policy.md` (`$OUT` is the session's scratchpad directory if it gives one — set `OUT=<scratchpad path>` before the lines below — else `$TOP/../tidy-<repo>/` next to the checkout, absolute; `$DIFF=$OUT/review.diff`); work from its `+` lines. `$ARGUMENTS` narrows to paths.
+Only lines **this change added or modified** (the working tree against the default branch, including untracked files), never the rest of the file — pre-existing comments are a separate conversation. Build the diff first — the session's scratchpad path in the second argument if it gives one, else `''` (output in `<top>/../tidy-<repo>/`); `$ARGUMENTS` (paths) narrows the inventory to those paths:
 ```bash
-TOP=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "not a git repository" >&2; exit 1; }
-REPO=$(basename "$TOP"); OUT=${OUT:-$TOP/../tidy-$REPO}
-DB='${user_config.default_branch}'; case "$DB" in '$'*) DB='';; esac; [ -z "$DB" ] && DB=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||'); DB=${DB:-main}
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/review.sh build tidy '' '${user_config.default_branch}' '${user_config.demo_marker}' '${user_config.demo_branch}' '${user_config.ticket_regex}' '${user_config.local_checks}'
 ```
+It prints the Review context (`Top`, `Out`, `Diff`, `Base`, `Head`, `Report`, options); write those values literally into later commands (`Report` is printed but only `pr-self-review` writes one) — each Bash call is a fresh shell, and a command that expands a variable cannot be pre-approved.
 
 Read `.claude/rules/repo-hygiene.md` and `CLAUDE.md` for the repo's comment conventions (docstring style, whether `TODO(KEY)` is allowed). If `.claude/fde-client-profile.md` exists, its client name is a term to remove.
 
@@ -29,12 +29,12 @@ Collect every added/changed instance of:
 - string literals in logs, errors and test names (`describe`, `it`, `test(`), fixture names and identifiers that carry a ticket key, a customer, a person, or a date;
 - files that are working artefacts, not product: `PLAN.md`, `HANDOFF.md`, `NOTES.md`, `TODO.md`, `*.scratch.*`, review reports, exported chats, screenshots not under the repo's evidence convention; `.claude/.cache/` (the hooks' cache dir) and Playwright auth state (`storageState`, `.auth/`) are never staged either.
 
-Quick greps over the `+` lines (confirm each by reading; `TICKET_REGEX` and `CUSTOMER_TERMS` come from the Repo policy block in the file above):
+Quick greps over the `+` lines (confirm each by reading; the ticket regex is the Review context's; replace `<CUSTOMER_TERMS>` with the policy block's `CUSTOMER_TERMS` as one `a|b` regex, or pass `''` when there are none):
 ```bash
-grep -nE '^\+.*(//|#|/\*|\*|"""|<!--)' $DIFF | grep -niE "(<TICKET_REGEX>|<CUSTOMER_TERMS>|as discussed|per the (ticket|workbook|customer|call|review)|for now|temporary|hack|quick fix|claude|assistant|session|step [0-9]|plan\.md|handoff|added (as part of|for|in)|updated (on|to)|changed (to|from)|20[0-9]{2}-[0-9]{2}-[0-9]{2}|see (above|below)|this (function|method|class|file) (does|is|handles|returns))"
-grep -nE '^\+\s*(//|#)\s*(const|let|var|def |class |if \(|for \(|return |import |export |[a-zA-Z_]+\(.*\);?\s*$)' $DIFF   # commented-out code
-grep -nE '^\+.*(console\.(log|debug)|print\(|logger\.debug|debugger|DBG-[A-Za-z0-9_-]+|TODO|FIXME|XXX)' $DIFF   # DBG- probes are what the Stop hook blocks
-git -C "$TOP" ls-files --others --exclude-standard | grep -iE '(plan|handoff|notes|todo|scratch|review|report|transcript)\.(md|txt)$|^\.claude/\.cache/|storageState|\.auth/'
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/review.sh notes '<Out>' '<CUSTOMER_TERMS>'   # added comments with a ticket key, a customer term or narrative
+grep -nE '^\+\s*(//|#)\s*(const|let|var|def |class |if \(|for \(|return |import |export |[a-zA-Z_]+\(.*\);?\s*$)' <Diff>   # commented-out code
+grep -nE '^\+.*(console\.(log|debug)|print\(|logger\.debug|debugger|DBG-[A-Za-z0-9_-]+|TODO|FIXME|XXX)' <Diff>   # DBG- probes are what the Stop hook blocks
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/review.sh gates '<Out>'   # its last list: untracked working artefacts (plans, notes, reports)
 ```
 
 ## 2. Classify every item into exactly one bucket
@@ -50,7 +50,7 @@ git -C "$TOP" ls-files --others --exclude-standard | grep -iE '(plan|handoff|not
 | **Delete — placeholder docstring** | Docstring that adds no information beyond the name and types | Remove, or write the real one if the symbol is public |
 | **Resolve — TODO/FIXME** | A deferred item | If the repo allows `TODO(KEY)`: keep only with a real ticket key and one line; else move to the PR's Deferred section and delete. Never "TODO for now" |
 | **Rename** | Identifier, test name, fixture or log string carrying a ticket key, a customer or a person | Rename to what it *is* (`acmeImport` → `spreadsheetImport`; `it('PROJ-123 regression')` → `it('re-import does not duplicate trimmed ids')`) |
-| **Untrack** | Working-artefact files inside the repo | Move outside the repo (`$OUT`) or delete; never stage |
+| **Untrack** | Working-artefact files inside the repo | Move outside the repo (`<Out>`) or delete; never stage |
 
 Bias: when in doubt between Keep and Delete, ask "would a teammate who has never seen the ticket need this to understand the code?" If not, delete. A file with no comments is not a problem; a file with twelve narrative ones is.
 

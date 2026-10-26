@@ -3,6 +3,7 @@ name: compound
 description: Turn this change's review findings, corrections and surprises into durable rules in .claude/rules/ (path-scoped where possible), hooks for must-nevers, or skills for procedures — so the same mistake is never made twice. Run after pr-self-review or after a reviewer round, before merging.
 argument-hint: "[pr number or branch]"
 disable-model-invocation: true
+allowed-tools: Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/*)
 ---
 
 # Compound: make the next ticket cheaper than this one
@@ -14,13 +15,11 @@ Rules are advisory context; they are the right home for *judgement* Claude shoul
 ## 1. Collect the raw material
 
 Gather, in this order, and list each item in one line:
-1. **Findings from the latest self-review** for this branch (Blocker and Should-fix first). Its path is in `$LATEST`, written by `pr-self-review`; `$DB` is the base for any diff you take while gathering:
+1. **Findings from the latest self-review** for this branch (Blocker and Should-fix first). It is the one the checkout's `LATEST` pointer names (written by `pr-self-review`); its `Branch:` line must name this branch (or its PR), else it is another change's report. A reviewer worklist `review-worklist-<name>.md` (same name part as the report) from `address-review` may sit beside it. Find it, and the default branch to diff against, with:
    ```bash
-   TOP=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "not a git repository" >&2; exit 1; }
-   REPO=$(basename "$TOP")
-   DB='${user_config.default_branch}'; case "$DB" in '$'*) DB='';; esac; [ -z "$DB" ] && DB=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||'); DB=${DB:-main}
-   LATEST="$TOP/../self-review-$REPO/LATEST"; RP=$(cat "$LATEST" 2>/dev/null); if [ -f "$RP" ]; then echo "$RP"; else echo "no self-review report for this checkout"; fi
+   bash ${CLAUDE_PLUGIN_ROOT}/scripts/review.sh latest '${user_config.default_branch}'
    ```
+   Use the printed values literally in later commands (each Bash call is a fresh shell).
 2. **Reviewer comments on the PR**: `gh pr view --comments` and `gh api repos/{owner}/{repo}/pulls/<n>/comments` (inline review comments). Include anything the reviewer had to explain.
 3. **Corrections the author made this session**: ask once — "What did you have to correct me on, or redo, while building this?" — and accept a short answer.
 4. **Plan vs reality**: where the implementation diverged from the `plan-from-ticket` plan, and why.
@@ -35,7 +34,7 @@ Gather, in this order, and list each item in one line:
 | **Cross-cutting judgement** | Applies to every file | `.claude/rules/<topic>.md`, no `paths` (rare; costs context every session) |
 | **Must-never / must-always** | A rule Claude has now broken twice, or the cost of one violation is high | A hook (repo-specific: a `hooks` entry in the repo's `.claude/settings.json`; generic: a change to the dimi plugin's `scripts/`) or `permissions.deny` — propose it; do not write a rule for it |
 | **Procedure** | A multi-step thing you'd want done the same way again | Skill (`.claude/skills/<name>/SKILL.md`) |
-| **Repo fact** | A command, a path, a convention Claude can't infer | `CLAUDE.md` Commands section, or the *repo* values of the Repo policy block (`${CLAUDE_PLUGIN_ROOT}/skills/pr-self-review/references/diff-and-policy.md` §4) |
+| **Repo fact** | A command, a path, a convention Claude can't infer | The repo's `CLAUDE.md`/`AGENTS.md` (Commands section, or the *repo* values the Repo policy block in `${CLAUDE_PLUGIN_ROOT}/skills/pr-self-review/references/diff-and-policy.md` §4 is resolved from at run time) or `.claude/rules/`; never edit the plugin's copy |
 | **Engagement constraint** | A client/business rule: approved models, regions, risk tier for an action class, retention | `.claude/fde-client-profile.md` (via `/dimi:client-profile`), never a rule |
 
 Be stingy. A rule nobody needed is context tax forever. If in doubt, drop it and see whether it recurs.

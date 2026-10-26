@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# SessionStart (startup | resume | compact): print a compact orientation block.
+# SessionStart (startup | resume | clear | compact | fork): print a compact orientation block.
 # Plain stdout from a SessionStart hook is added to Claude's context, so this is how
 # critical working state survives /clear, resume and compaction without bloating CLAUDE.md.
 
 set -u
+HERE=$(cd "$(dirname "$0")" 2>/dev/null && pwd -P) || exit 0   # before any cd: $0 may be relative
 if ! command -v jq >/dev/null 2>&1; then
   echo "dimi: jq is not on PATH, so the plugin's hooks (Bash guard, Stop gate, session notes) are inactive until it is installed."
   exit 0
@@ -13,19 +14,22 @@ SOURCE=$(printf '%s' "$INPUT" | jq -r '.source // "startup"' 2>/dev/null)
 
 cd "${CLAUDE_PROJECT_DIR:-.}" 2>/dev/null || exit 0
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
+cd "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || exit 0   # top-level-relative paths, same key as the other hooks
+. "$HERE/lib.sh" 2>/dev/null || exit 0                    # project_key
 
 # ------------------------------------------------------------- configuration ----
 DEFAULT_BRANCH="${CLAUDE_PLUGIN_OPTION_DEFAULT_BRANCH:-${STOP_DEFAULT_BRANCH:-}}"
 [ -z "$DEFAULT_BRANCH" ] && DEFAULT_BRANCH=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||'); DEFAULT_BRANCH="${DEFAULT_BRANCH:-main}"
 TICKET_REGEX="${CLAUDE_PLUGIN_OPTION_TICKET_REGEX-${GUARD_TICKET_REGEX-[A-Z][A-Z0-9]+-[0-9]+}}"
 case "$TICKET_REGEX" in none|NONE|None) TICKET_REGEX="";; esac
+TICKET_REGEX=$(printf '%s' "$TICKET_REGEX" | sed 's/\\d/[0-9]/g')   # grep -E has no \d
 LOCAL_CHECKS="${CLAUDE_PLUGIN_OPTION_LOCAL_CHECKS:-see CLAUDE.md Commands section}"
 DEMO_BRANCH="${CLAUDE_PLUGIN_OPTION_DEMO_BRANCH:-}"
 # --------------------------------------------------------------------------------
 
-BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD 2>/dev/null || echo "?")
 TICKET=""; [ -n "$TICKET_REGEX" ] && TICKET=$(printf '%s' "$BRANCH" | grep -oE -- "$TICKET_REGEX" | head -1)
-BASE=$(git merge-base "origin/$DEFAULT_BRANCH" HEAD 2>/dev/null || git rev-parse HEAD)
+BASE=$(git merge-base "origin/$DEFAULT_BRANCH" HEAD 2>/dev/null || git merge-base "$DEFAULT_BRANCH" HEAD 2>/dev/null || git rev-parse HEAD 2>/dev/null)
 BEHIND=$(git rev-list --count "HEAD..origin/$DEFAULT_BRANCH" 2>/dev/null || echo "?")
 COMMITS=$(git rev-list --count "$BASE..HEAD" 2>/dev/null || echo 0)
 CHANGED=$( { git diff --name-only "$BASE" 2>/dev/null; git ls-files --others --exclude-standard; } | grep -v '^\.claude/\.cache/' | sort -u )
@@ -33,8 +37,7 @@ N_CHANGED=$(printf '%s\n' "$CHANGED" | grep -c . || true)
 UNTRACKED=$(git ls-files --others --exclude-standard | grep -v '^\.claude/\.cache/' | grep -c . || true)
 
 echo "## Working state ($SOURCE)"
-_hash() { if command -v sha1sum >/dev/null 2>&1; then sha1sum | cut -c1-40; elif command -v shasum >/dev/null 2>&1; then shasum -a 1 | cut -c1-40; else cksum | cut -d' ' -f1; fi; }
-_notes="${CLAUDE_PLUGIN_DATA:-.claude/.cache}/sessions/$(pwd | _hash | cut -c1-12).log"
+_notes="${CLAUDE_PLUGIN_DATA:-.claude/.cache}/sessions/$(project_key).log"
 if [ "$SOURCE" != "compact" ] && [ -f "$_notes" ]; then echo "Last session here: $(tail -n 1 "$_notes")"; fi
 echo "Branch: $BRANCH  ·  Ticket: ${TICKET:-none in branch name}  ·  Commits on branch: $COMMITS  ·  Behind $DEFAULT_BRANCH: $BEHIND"
 echo "Changed vs $DEFAULT_BRANCH: $N_CHANGED files ($UNTRACKED untracked)"

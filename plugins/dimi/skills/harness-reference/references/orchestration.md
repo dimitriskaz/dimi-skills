@@ -167,7 +167,7 @@ This is why HITL and checkpointing are inseparable: without durable state, a pau
 
 **Design rules that hold up in production**
 
-- **Tier by risk**: read-only actions on internal systems run automatically; reversible writes may run without approval, with a sample reviewed afterwards; irreversible or financial actions always need approval. Any tool that can reach an external address (a URL fetch, a web search, an image render) is an outbound channel and follows the lethal-trifecta rule in Part 2, even if it only reads.
+- **Tier by risk**: read-only actions on internal systems run automatically; writes are human-accepted proposals by default; a reversible write may run without approval only when the client profile explicitly allows it, with a sample reviewed by a person afterwards; irreversible or financial actions always need approval. Any tool that can reach an external address (a URL fetch, a web search, an image render) is an outbound channel and follows the rule of two (Part 5; the lethal trifecta in Part 2), even if it only reads.
 - **Bind the approval to the exact action**: store a hash of the tool name and arguments with each interrupt, execute only that exact call, make each approval single-use with an expiry, and check that the approver is allowed to approve it.
 - **Show context, not just the call**: the reviewer needs the agent's reasoning, the source data and a diff of what will change.
 - **Set timeouts and defaults**: decide what happens if nobody answers, such as escalating or cancelling safely.

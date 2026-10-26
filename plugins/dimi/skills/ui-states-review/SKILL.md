@@ -2,6 +2,7 @@
 name: "ui-states-review"
 description: "Review a UI change for every state a screen or action can be in — loading, empty vs unread, partial, stale, permission-denied, partial success, permanent vs retryable errors — plus forms, data truthfulness, design-token compliance and keyboard models, and list the Playwright coverage those states need."
 argument-hint: "[component or page paths]"
+allowed-tools: Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(grep *)
 ---
 
 # UI states review
@@ -12,12 +13,13 @@ This covers what the design skills do not: *behaviour under every state*. If the
 
 ## 0. Inputs
 
-- A diff (`$DIFF`, built with §1 of `${CLAUDE_PLUGIN_ROOT}/skills/pr-self-review/references/diff-and-policy.md` after the lines below; `$OUT` is the session's scratchpad directory if it gives one — set `OUT=<scratchpad path>` first — else `$TOP/../ui-states-review-<repo>/` next to the checkout, absolute; `$DIFF=$OUT/review.diff`) or a list of components/pages.
+- A diff or a list of components/pages. For a diff, build it first — the session's scratchpad path in the second argument if it gives one, else `''` (output in `<top>/../ui-states-review-<repo>/`, absolute):
   ```bash
-  TOP=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "not a git repository" >&2; exit 1; }
-  REPO=$(basename "$TOP"); OUT=${OUT:-$TOP/../ui-states-review-$REPO}
-  DB='${user_config.default_branch}'; case "$DB" in '$'*) DB='';; esac; [ -z "$DB" ] && DB=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||'); DB=${DB:-main}
-  ``` Read each changed component **and** the hooks/loaders it uses; the states live in the loader, the symptoms in the component.
+  bash ${CLAUDE_PLUGIN_ROOT}/scripts/review.sh build ui-states-review '' '${user_config.default_branch}' '${user_config.demo_marker}' '${user_config.demo_branch}' '${user_config.ticket_regex}' '${user_config.local_checks}'
+  ```
+  It prints the Review context (`Top`, `Out`, `Diff`, `Base`, `Head`, `Report`, options); write those values literally into later commands (`Report` is printed but only `pr-self-review` writes one) — each Bash call is a fresh shell, and a command that expands a variable cannot be pre-approved.
+
+  Read each changed component **and** the hooks/loaders it uses; the states live in the loader, the symptoms in the component.
 - If a browser tool or Playwright is available and the app runs locally, drive the real screen through the states below and take screenshots; otherwise reason from code and say so.
 
 ## 1. Inventory
@@ -97,15 +99,15 @@ List the Playwright specs that cover the risky rows of sections 2–3 — at min
 
 ## Quick greps (read around every hit)
 ```bash
-grep -nE '^\+.*(\?\?\s*\[\]|\|\|\s*\[\]|catch.*\[\])' $DIFF            # fallback-to-empty: unread shown as empty?
-grep -nE '^\+.*#[0-9a-fA-F]{6}\b' $DIFF                              # raw hex off the token ramps
-grep -nE '^\+.*role="(grid|listbox|menu|tree|tablist)"' $DIFF         # roles that need a keyboard model
-grep -nE '^\+.*(disabled=\{.*(admin|role|can))' $DIFF                 # disabled used as authorization?
-grep -nE '^\+.*(Date\.now\(\)|new Date\(\))' $DIFF                     # browser clock in view logic
-grep -nE '^\+.*(JSON\.stringify)' $DIFF                                # heavy work per render
-grep -nE '^\+.*(setInterval|visibilitychange|focus)' $DIFF            # polling / refetch triggers
-grep -nE '^\+.*(<input|<textarea)' $DIFF                              # free text for constrained values?
-grep -nE '^\+.*(Nothing|No .* (found|exist)|none)' $DIFF              # empty-state copy: reachable on failure?
+grep -nE '^\+.*(\?\?\s*\[\]|\|\|\s*\[\]|catch.*\[\])' <Diff>            # fallback-to-empty: unread shown as empty?
+grep -nE '^\+.*#[0-9a-fA-F]{6}\b' <Diff>                              # raw hex off the token ramps
+grep -nE '^\+.*role="(grid|listbox|menu|tree|tablist)"' <Diff>         # roles that need a keyboard model
+grep -nE '^\+.*(disabled=\{.*(admin|role|can))' <Diff>                 # disabled used as authorization?
+grep -nE '^\+.*(Date\.now\(\)|new Date\(\))' <Diff>                     # browser clock in view logic
+grep -nE '^\+.*(JSON\.stringify)' <Diff>                                # heavy work per render
+grep -nE '^\+.*(setInterval|visibilitychange|focus)' <Diff>            # polling / refetch triggers
+grep -nE '^\+.*(<input|<textarea)' <Diff>                              # free text for constrained values?
+grep -nE '^\+.*(Nothing|No .* (found|exist)|none)' <Diff>              # empty-state copy: reachable on failure?
 ```
 
 ## Output

@@ -1,10 +1,10 @@
 ---
 name: harden-mcp
-description: Review an MCP (Model Context Protocol) server for spec compliance and security against the current MCP spec revision named at the top of references/checklist.md - stateless core, transports, OAuth 2.1 resource-server auth, audience validation, no token passthrough, tool design, injection, SSRF, path traversal and supply chain. Produces a prioritised report with file:line evidence and fixes. Use when building, reviewing or preparing an MCP server for a client, a security review or publication.
+description: Review an MCP (Model Context Protocol) server for spec compliance and security against the current MCP spec revision named at the top of references/checklist.md - protocol core, transports, OAuth 2.1 resource-server auth, audience validation, no token passthrough, tool design, injection, SSRF, path traversal and supply chain. Produces a prioritised report with file:line evidence and fixes. Use when building, reviewing or preparing an MCP server for a client, a security review or publication.
 argument-hint: "[path to the MCP server]"
 context: fork
 agent: general-purpose
-allowed-tools: Read Grep Glob Bash(git ls-files *) Bash(git log *) Bash(git rev-parse *) Bash(rg *)
+allowed-tools: Read Grep Glob Bash(git ls-files *) Bash(git log *) Bash(git rev-parse *) Bash(rg *) Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/*)
 disallowed-tools: Write Edit NotebookEdit
 ---
 
@@ -16,23 +16,13 @@ The checklist's search hints are written for `rg -e` with every regex metacharac
 
 ## Context
 
-Repository files:
-
-!`{ TOP=$(git rev-parse --show-toplevel 2>/dev/null) && git -C "$TOP" ls-files || echo "not a git repository"; } | head -400 || true`
-
-Current commit:
-
-!`git rev-parse --short HEAD 2>/dev/null || echo "not a git repository"`
-
-Client profile:
-
-!`cat "$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.claude/fde-client-profile.md" 2>/dev/null || echo "No client profile found. Use the default severities in the checklist."`
+!`bash ${CLAUDE_PLUGIN_ROOT}/scripts/state/repo-profile.sh checklist`
 
 ## Steps
 
 1. **Identify the server.** Language, MCP SDK and version (from lockfiles), transport (stdio or Streamable HTTP), local or remote, the spec revision it targets, how it authenticates, and every tool, resource and prompt it exposes. Note which tools write and which reach the network or file system.
 2. **Run the checklist.** Read [checklist.md](references/checklist.md) and work through every applicable check. Skip the authorisation section for stdio-only local servers, but check local privileges instead. Every finding needs `path:line` evidence you have read.
-3. **Confirm spec and SDK details.** The current revision named at the top of [checklist.md](references/checklist.md) changed the core substantially (stateless core, multi round-trip requests, deprecations), so a server built against an earlier revision needs a migration plan. Confirm any detail a finding depends on against the current spec at modelcontextprotocol.io, and SDK behaviour against the installed SDK version's docs (Context7 if available). List anything you cannot confirm under "Could not verify".
+3. **Confirm spec and SDK details.** [checklist.md](references/checklist.md) names the current revision and, in section 1, what it changed from earlier ones; a server built against an earlier revision needs a migration plan for each of those changes. Confirm any detail a finding depends on against the current spec at modelcontextprotocol.io, and SDK behaviour against the installed SDK version's docs (Context7 if available). List anything you cannot confirm under "Could not verify".
 4. **Apply severities** from the checklist, adjusted by the client profile if one was found: if the profile's "Severity overrides for reviews" table names an id from this checklist, use that severity and cite the row in the finding; otherwise adjust by its risk tiers.
 5. **Recommend fixes**, pointing to a pattern in [patterns.md](references/patterns.md) by number where one applies.
 6. **Write the report** using the structure below and return it as your final output.

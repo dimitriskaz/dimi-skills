@@ -34,17 +34,17 @@ Install at **user** scope by default. Use **project** scope in team repositories
 
 - Third-party marketplaces do not auto-update by default. Turn it on in `/plugin` → Marketplaces, or update manually: `claude plugin marketplace update dimi-skills`, then `claude plugin update dimi@dimi-skills`.
 - The `version` in `plugins/dimi/.claude-plugin/plugin.json` controls updates: users stay on a version until it is bumped.
-- To pin to a release, add the marketplace with a ref: `/plugin marketplace add dimitriskaz/dimi-skills#v1.3.0`.
+- To pin to a release, add the marketplace with a ref: `/plugin marketplace add dimitriskaz/dimi-skills#v1.4.0`.
 
 ## Using it on a repository
 
 1. Install at project scope and copy [`templates/project-claude/`](templates/project-claude/README.md) into the repo (permissions, `enabledPlugins`, starter `.claude/rules/`, `CLAUDE.md` snippet). Set the plugin options: `/plugin` → dimi → **Configure options** (ticket regex, default branch, typecheck script, Python lint command, local checks line).
-2. Per ticket: `/dimi:grill-me` (optional, pressure-test the idea) → `/dimi:plan-from-ticket` → build → `/dimi:ui-states-review` (UI) → `/dimi:tidy` → `/dimi:pr-self-review` → `/dimi:commit-push-pr` → paste the review into `/dimi:address-review` → `/dimi:compound`. Something red at any point: `/dimi:debug`.
+2. Per ticket: `/dimi:plan-from-ticket` → `/dimi:grill-me` (optional, pressure-test the plan; it also works on a fresh idea before planning) → build → `/dimi:ui-states-review` (UI) → `/dimi:tidy` → `/dimi:pr-self-review` → `/dimi:commit-push-pr` → paste the review into `/dimi:address-review` → `/dimi:compound`. Something red at any point: `/dimi:debug`.
 3. The hooks run on their own: format on edit, Stop gate, Bash guard, session banner, session-end note. If Claude feels slow or several shells appear, read [docs/guide.md](docs/guide.md) → "If Claude feels slow".
 
 ## Demo branch and productionising (FDE)
 
-A long-lived demo branch is normal on an engagement. Keep it honest with `/dimi:poc`: `init` once, `mark` every shortcut (`DEMO-ONLY(<feature>): why`), `push` straight to the shared demo branch behind a light gate, `sync` the default branch in by merge (never rebase), `status` for what is demo-only, owed or ported. When a feature is ready for production, `/dimi:port <feature>` computes the real delta, builds a local integration worktree of main plus your open PRs, classifies each hunk as reuse / rewrite / drop, picks the base (main, or stacked one level on the PR it depends on) and hands the build to the normal loop. The marker can never reach main: `pr-self-review` fails on it.
+A long-lived demo branch is normal on an engagement. Keep it honest with `/dimi:poc`: `init` once, `mark` every shortcut (`DEMO-ONLY(<feature>): why`), `push` straight to the shared demo branch behind a light gate, `sync` the default branch in by merge (never rebase), `ledger` to set a row by hand, `status` for what is demo-only, owed, in review or ported. When a feature is ready for production, `/dimi:port <feature>` computes the real delta, builds a local integration worktree of main plus your open PRs, classifies each hunk as reuse / rewrite / drop, picks the base (main, or stacked one level on the PR it depends on) and hands the build to the normal loop. The marker can never reach main: `pr-self-review` fails on it.
 
 ## Using it on a client engagement
 
@@ -66,13 +66,14 @@ plugins/dimi/
   skills/                            23 skills (18 development loop and agent building, 5 agent engineering)
   agents/                            explore, reviewer, verifier, spec-writer, implementer, debugger
   hooks/hooks.json                   5 hook registrations → scripts/
-  scripts/                           format-file, stop-check, guard-bash, session-context, session-end-note
+  scripts/                           5 hook scripts (format-file, stop-check, guard-bash, session-context, session-end-note),
+                                     review helpers (review.sh), shared lib.sh, state/ (skills' pre-computed state)
 ```
 
 ## Maintaining
 
 - Validate before merging: `claude plugin validate ./` and `claude plugin validate ./plugins/dimi --strict`.
 - Hook scripts in `plugins/dimi/scripts/` are dry-run against a scratch git repo before release, on a GNU PATH and a macOS-like one (see the guide's "Testing the hooks"); a broken Stop hook blocks every turn for every user.
-- Refresh dated facts every month or two: `/dimi:refresh-harness` from a clean checkout of this repository.
+- Refresh dated facts monthly (the first working day): `/dimi:refresh-harness` from a clean checkout of this repository.
 - One plugin, one version: every release bumps `plugins/dimi/.claude-plugin/plugin.json`, adds a `CHANGELOG.md` entry and is tagged `v<version>`.
 - See [CLAUDE.md](CLAUDE.md) for authoring conventions.

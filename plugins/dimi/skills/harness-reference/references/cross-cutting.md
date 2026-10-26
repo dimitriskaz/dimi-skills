@@ -286,7 +286,7 @@ An agent copies client data into many places: prompts, provider-side state, vect
 | Checkpoints and memory | Conversation history and facts about users | Retention limits, user-visible memory, deletion on request |
 | Traces and logs | Prompts and outputs if captured | Redaction, separate content store, retention, access control (Part 4) |
 | Caches | Prompt prefixes, semantic caches | Scope per tenant; never share across tenants |
-| Eval datasets | Real examples from production | Anonymise, get the data owner's consent, set retention |
+| Eval datasets | Real-shaped cases by default (the structure, edge cases and expected outcomes of real work, with synthetic content); real client cases only anonymised and with the client's consent | Store real cases under the client's data policy, never in this plugin's repository; set retention |
 
 **Zero data retention is per feature, not per account**
 
