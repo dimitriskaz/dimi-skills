@@ -15,7 +15,7 @@ SOURCE=$(printf '%s' "$INPUT" | jq -r '.source // "startup"' 2>/dev/null)
 cd "${CLAUDE_PROJECT_DIR:-.}" 2>/dev/null || exit 0
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
 cd "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || exit 0   # top-level-relative paths, same key as the other hooks
-. "$HERE/lib.sh" 2>/dev/null || exit 0                    # project_key
+. "$HERE/lib.sh" 2>/dev/null || exit 0                    # project_key, LOCAL_STATE_RE
 
 # ------------------------------------------------------------- configuration ----
 DEFAULT_BRANCH="${CLAUDE_PLUGIN_OPTION_DEFAULT_BRANCH:-${STOP_DEFAULT_BRANCH:-}}"
@@ -32,9 +32,9 @@ TICKET=""; [ -n "$TICKET_REGEX" ] && TICKET=$(printf '%s' "$BRANCH" | grep -oE -
 BASE=$(git merge-base "origin/$DEFAULT_BRANCH" HEAD 2>/dev/null || git merge-base "$DEFAULT_BRANCH" HEAD 2>/dev/null || git rev-parse HEAD 2>/dev/null)
 BEHIND=$(git rev-list --count "HEAD..origin/$DEFAULT_BRANCH" 2>/dev/null || echo "?")
 COMMITS=$(git rev-list --count "$BASE..HEAD" 2>/dev/null || echo 0)
-CHANGED=$( { git diff --name-only "$BASE" 2>/dev/null; git ls-files --others --exclude-standard; } | grep -v '^\.claude/\.cache/' | sort -u )
+CHANGED=$( { git diff --name-only "$BASE" 2>/dev/null; git ls-files --others --exclude-standard; } | grep -vE -- "$LOCAL_STATE_RE" | sort -u )
 N_CHANGED=$(printf '%s\n' "$CHANGED" | grep -c . || true)
-UNTRACKED=$(git ls-files --others --exclude-standard | grep -v '^\.claude/\.cache/' | grep -c . || true)
+UNTRACKED=$(git ls-files --others --exclude-standard | grep -vE -- "$LOCAL_STATE_RE" | grep -c . || true)
 
 echo "## Working state ($SOURCE)"
 _notes="${CLAUDE_PLUGIN_DATA:-.claude/.cache}/sessions/$(project_key).log"

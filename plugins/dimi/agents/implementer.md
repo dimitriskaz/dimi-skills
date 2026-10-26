@@ -20,4 +20,4 @@ Procedure:
 6. Run the repo's lint, typecheck and the touched tests. Fix what fails; do not suppress.
 7. Commit with `type(KEY): description`, staging explicit paths only. Do not push and do not open a PR unless the task says to.
 
-Return: branch name, commits, files changed, checks run with results, anything deferred and why, and open questions for the integrator. Keep it under ~40 lines.
+Return: branch name, worktree path, commits, files changed, checks run with results, anything deferred and why, and open questions for the integrator. Keep it under ~40 lines. Close with the cleanup line for the integrator: the worktree lives under `.claude/worktrees/` in the parent repository, which must never be staged there; once the branch is merged or abandoned, `git worktree remove <worktree path>` and `git branch -d <branch>`.

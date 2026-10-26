@@ -59,7 +59,7 @@ Commit the current demo work and push straight to the demo branch — no PR, no 
    ```bash
    bash ${CLAUDE_PLUGIN_ROOT}/scripts/state/poc.sh '${user_config.demo_branch}' '${user_config.demo_marker}' '${user_config.default_branch}' secrets
    ```
-3. Untracked files that are not part of the change (`.env*`, dumps, exports, review reports, anything matching `storageState|\.auth/`, `.claude/.cache/`) → never stage; ask which of the rest to include.
+3. Untracked files that are not part of the change (`.env*`, dumps, exports, review reports, anything matching `storageState|\.auth/`, `.claude/.cache/`, `.claude/worktrees/`) → never stage; ask which of the rest to include.
 4. Customer or personal data in code, fixtures or screenshots → stop; the demo tenant's invented data is fine, a real customer's is not.
 5. Unmarked shortcuts in the changed files → offer `mark` first (a shortcut without a marker is the thing `port` will miss).
 6. The ledger has a row for every feature touched (add or update it in the same commit).
