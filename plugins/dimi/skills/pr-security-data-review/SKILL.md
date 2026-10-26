@@ -1,22 +1,22 @@
 ---
 name: "pr-security-data-review"
 description: "Security and data-handling review of a working-tree or PR diff for a multi-tenant product: tenant isolation, authz gates and bypasses, injection, SSRF, secrets and env flags, PII and data minimisation, customer data in git, exports/XSS/prompt injection, unsafe defaults, new dependencies. Use alone or as stage 3 of pr-self-review."
+allowed-tools: Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(grep *)
 ---
 
 # Security and data-handling review
 
-Stage 3 of `pr-self-review`; also usable alone ("security pass before I push", "is there PII in my changes"). Input: a diff file `$DIFF` (working tree against the base branch including untracked files, or a PR's own base...head) and the code readable as it is now. Output: findings in the `pr-self-review` interchange format (category `security` or `data-handling`) plus a **mandatory** `CHECKED_CLEAN:` list naming every section below that was examined with the one-line reason it is clean. If the repo has its own security-review skill, run it too against the same tree and include its result.
+Stage 3 of `pr-self-review`; also usable alone ("security pass before I push", "is there PII in my changes"). Input: a diff file (`Diff` in the Review context: working tree against the base branch including untracked files, or a PR's own base...head) and the code as it is now (PR mode: at `Head`, `git show <Head>:<path>`). Output: findings in the `pr-self-review` interchange format (category `security` or `data-handling`) plus a **mandatory** `CHECKED_CLEAN:` list naming every section below that was examined with the one-line reason it is clean. If the repo has its own security-review skill, run it too against the same tree and include its result.
 
-If run alone, resolve the options (substituted only in this file), then build the diff with §1 of `${CLAUDE_PLUGIN_ROOT}/skills/pr-self-review/references/diff-and-policy.md` (`$OUT` is the session's scratchpad directory if it gives one — set `OUT=<scratchpad path>` first — else `$TOP/../pr-security-data-review-<repo>/` next to the checkout, absolute; `$DIFF=$OUT/review.diff`; merge-base diff plus `--no-index` diffs for untracked files, sets `$BASE`):
+As stage 3 of `pr-self-review`, use that skill's diff and the Review context it printed. Alone, build the diff first — put the session's scratchpad path in the second argument if it gives one (else `''`; the output then goes to `<top>/../pr-security-data-review-<repo>/`, absolute, never inside the repo):
 ```bash
-TOP=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "not a git repository" >&2; exit 1; }
-REPO=$(basename "$TOP"); OUT=${OUT:-$TOP/../pr-security-data-review-$REPO}
-DB='${user_config.default_branch}'; case "$DB" in '$'*) DB='';; esac; [ -z "$DB" ] && DB=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||'); DB=${DB:-main}
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/review.sh build pr-security-data-review '' '${user_config.default_branch}' '${user_config.demo_marker}' '${user_config.demo_branch}' '${user_config.ticket_regex}' '${user_config.local_checks}'
 ```
+It prints the Review context (`Top`, `Out`, `Diff`, `Base`, `Head`, `Report`, options); write those values literally into later commands — each Bash call is a fresh shell, and a command that expands a variable cannot be pre-approved.
 
 **Confidence bar.** Report a security finding when you can show the path from an input an attacker or careless user controls to the effect. A missing defence with no reachable path is a `conventions` note, not a security finding. PLAUSIBLE when the path depends on deployment or vendor behaviour you cannot see; name the confirm step.
 
-**Before commit, secrets come first.** Untracked and staged files are where credentials leak: run the secrets greps in section 3 over `$DIFF` and `git ls-files --others --exclude-standard` before anything else. A real secret anywhere in the tree about to be committed is a Blocker, and if it was ever committed on this branch it must be rotated, not just removed.
+**Before commit, secrets come first.** Untracked and staged files are where credentials leak: run `review.sh gates '<Out>'` (section 3) before anything else: it lists secret-shaped added lines and untracked secret/state files. A real secret anywhere in the tree about to be committed is a Blocker, and if it was ever committed on this branch it must be rotated, not just removed.
 
 ## 1. Threat-model the diff first (before any grep)
 
@@ -45,7 +45,7 @@ Everything below is checked against this list. A section with nothing in the lis
 - Replay/idempotency checks run **after** kind and ownership checks, not before.
 - Read visibility is a *deliberate* choice: a GET open to every tenant user that exposes approver names, allowlists or exception lists → "probably acceptable, confirm it is intended".
 - Authorization stays server-side; UI-only `disabled` flags are not authorization.
-- **Open redirect, CSRF and CORS**: redirect targets (`next`, `returnUrl`, `redirect_uri`) allowlisted or relative-only; state-changing routes on cookie auth carry a CSRF token or same-site check and never use GET; CORS never `*` with credentials, origins from a constant list. Grep: `grep -niE '^\+.*(redirect|returnUrl|next=|Access-Control-Allow-Origin|cors\(|credentials: ?true|SameSite)' $DIFF`.
+- **Open redirect, CSRF and CORS**: redirect targets (`next`, `returnUrl`, `redirect_uri`) allowlisted or relative-only; state-changing routes on cookie auth carry a CSRF token or same-site check and never use GET; CORS never `*` with credentials, origins from a constant list. Grep: `grep -niE '^\+.*(redirect|returnUrl|next=|Access-Control-Allow-Origin|cors\(|credentials: ?true|SameSite)' <Diff>`.
 
 ### Input validation and request bounds
 - Verdict-affecting settings validated **server-side** for shape and range (`'abc'` for a percentage, non-list for a list, `min_pct=0`, `max_count=99999`). Unknown key → whole patch refused.
@@ -58,8 +58,8 @@ Everything below is checked against this list. A section with nothing in the lis
 - SQL or any vendor query DSL: parameterised values, enum-validated tokens, regex-validated identifiers, bounded integers; constants via `json.dumps`/parameters, never concatenated text. The data layer's filter compiler is the only path to the store.
 - **CSV/spreadsheet export**: values starting with `=`, `+`, `-`, `@`, tab or CR neutralised (prefix `'` and quote). Hostnames, titles, owners, test names are attacker-influenced.
 - **XSS**: no `dangerouslySetInnerHTML`/`innerHTML`/`v-html`; server-built strings rendered as text; URL params used only as map keys.
-- **OS command injection**: no user-, record- or model-sourced text in `subprocess(..., shell=True)`, `os.system`, `child_process.exec`/`execSync`, backtick or template-string shell commands; argument arrays with a fixed binary only. Grep: `grep -nE '^\+.*(shell=True|os\.system|child_process|execSync|\bexec\(|popen\()' $DIFF`.
-- **Unsafe deserialization**: no `pickle.loads`, `yaml.load` without `SafeLoader`, `marshal`, `eval`/`new Function` on data from outside the process; schema-validate JSON instead. Grep: `grep -nE '^\+.*(pickle\.loads?|yaml\.load\(|marshal\.|\beval\(|new Function\()' $DIFF`.
+- **OS command injection**: no user-, record- or model-sourced text in `subprocess(..., shell=True)`, `os.system`, `child_process.exec`/`execSync`, backtick or template-string shell commands; argument arrays with a fixed binary only. Grep: `grep -nE '^\+.*(shell=True|os\.system|child_process|execSync|\bexec\(|popen\()' <Diff>`.
+- **Unsafe deserialization**: no `pickle.loads`, `yaml.load` without `SafeLoader`, `marshal`, `eval`/`new Function` on data from outside the process; schema-validate JSON instead. Grep: `grep -nE '^\+.*(pickle\.loads?|yaml\.load\(|marshal\.|\beval\(|new Function\()' <Diff>`.
 - **Prompt injection**: record/connector text reaches the model only as tool results; model output re-validated and needs human Accept; no silent writes; system-prompt rules do not let the model assert facts it has not read ("test X covers this" when X is inactive).
 
 ### LLM and agent code (when the diff touches prompts, tools, agents or MCP)
@@ -96,7 +96,7 @@ A product that handles personal data collects the minimum. For every projected f
 ### Customer data and identifiers in the repo
 - Customer names, their tooling, record ids, workbook content (catalogues, crosswalks, mapping rows "transcribed from" a customer), POC ticket keys baked into **dedupe keys or source refs** (unchangeable later without breaking dedupe).
 - Fixture organisations and controls that look real ("<Customer>, Inc.").
-- Design notes under policy-ignored paths that were force-added: `git diff --name-only --diff-filter=A $BASE | xargs -r git check-ignore -v --no-index`; also `git diff --cached --name-only | xargs -r git check-ignore -v --no-index` before commit (without `--no-index`, tracked and staged paths are never reported).
+- Design notes under policy-ignored paths that were force-added: the gates' "added files that match an ignore rule" list (`review.sh gates`; the files this diff adds — in PR mode the PR's, not the local tree's — checked from the top level with `--no-index`, so tracked and staged paths are reported too) before commit.
 - Merged history is permanent → Blocker or Should fix, never Minor. Before commit is the cheapest moment to remove it; once pushed it needs a history rewrite.
 
 ### Defaults, tenant controls and audit
@@ -116,23 +116,19 @@ A product that handles personal data collects the minimum. For every projected f
 
 ## 3. Quick greps (read around every hit)
 ```bash
-# secrets — run first, over the diff and over untracked files (SECRET_RE is defined once in diff-and-policy.md §4; copy it verbatim)
-SECRET_RE='(-----BEGIN (RSA|EC|OPENSSH|DSA|PGP)? ?PRIVATE KEY|AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,}|xox[abprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{35}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}|(api[_-]?key|secret|password|passwd|token|private[_-]?key)[[:space:]]*[=:][[:space:]]*["'"'"']?[A-Za-z0-9/+_=-]{8,})'
-grep -niE "$SECRET_RE" "$DIFF" | sed -E 's/^(([^:]*:)?[0-9]+:[^=:]*[=:][[:space:]]*).{4,}$/\1<redacted>/' | cut -c1-140
-( cd "$TOP" && git ls-files --others --exclude-standard | grep -vE '(^|/)\.env(\.|$)|\.(pem|key|p12)$|storageState|\.auth/|^\.claude/\.cache/' | while IFS= read -r f; do grep -niHE "$SECRET_RE" "$f" 2>/dev/null; done ) | sed -E 's/^(([^:]*:)?[0-9]+:[^=:]*[=:][[:space:]]*).{4,}$/\1<redacted>/' | cut -c1-140
-git -C "$TOP" ls-files --others --exclude-standard | grep -iE '(^|/)\.env(\.|$)|(\.pem|\.key|\.p12|credentials|\.sqlite|\.dump|\.bak)$|storageState|\.auth/|^\.claude/\.cache/'   # state files: never staged, never dumped
+# secrets first: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/review.sh gates '<Out>'` lists secret-shaped added lines (values masked) and untracked secret/state files
 
-grep -nE '^\+.*(dangerouslySetInnerHTML|innerHTML|v-html)' $DIFF
-grep -nE '^\+.*(tenant_id|tenantId)' $DIFF | grep -vE 'session|claims|headers'       # tenant from where?
-grep -niE '^\+.*(\.post\(|\.put\(|\.patch\(|\.delete\(|method[:=]\s*.(POST|PUT|PATCH|DELETE))' $DIFF
-grep -niE '^\+.*(nextLink|next_link|\bnext\b).*(get|fetch|request)' $DIFF
-grep -niE '^\+.*(email|UserPrincipalName|IPAddress|Location|MACAddress|hostname|username)' $DIFF
-grep -nE '^\+.*(console\.(log|info|warn|error)|logger\.|logging\.|print\()' $DIFF   # what is logged?
-grep -niE '^\+.*(toCsv|\.csv|text/csv|xlsx)' $DIFF
-grep -niE '^\+.*(process\.env|os\.environ|getenv)' $DIFF                             # new flags and their defaults
-grep -niE '^\+.*(mock|stub|fake|demo)' $DIFF | grep -vE '(test|spec|fixture|e2e)s?/'   # mock data in src?
-grep -niE '<CUSTOMER_TERMS from the Repo policy block in diff-and-policy.md>' $DIFF
-git diff --name-only $BASE | grep -E '(package-lock|yarn\.lock|pnpm-lock|poetry\.lock|requirements|pyproject)'
+grep -nE '^\+.*(dangerouslySetInnerHTML|innerHTML|v-html)' <Diff>
+grep -nE '^\+.*(tenant_id|tenantId)' <Diff> | grep -vE 'session|claims|headers'       # tenant from where?
+grep -niE '^\+.*(\.post\(|\.put\(|\.patch\(|\.delete\(|method[:=]\s*.(POST|PUT|PATCH|DELETE))' <Diff>
+grep -niE '^\+.*(nextLink|next_link|\bnext\b).*(get|fetch|request)' <Diff>
+grep -niE '^\+.*(email|UserPrincipalName|IPAddress|Location|MACAddress|hostname|username)' <Diff>
+grep -nE '^\+.*(console\.(log|info|warn|error)|logger\.|logging\.|print\()' <Diff>   # what is logged?
+grep -niE '^\+.*(toCsv|\.csv|text/csv|xlsx)' <Diff>
+grep -niE '^\+.*(process\.env|os\.environ|getenv)' <Diff>                             # new flags and their defaults
+grep -niE '^\+.*(mock|stub|fake|demo)' <Diff> | grep -vE '(test|spec|fixture|e2e)s?/'   # mock data in src?
+grep -niE '<CUSTOMER_TERMS from the Repo policy block in diff-and-policy.md>' <Diff>
+git diff --name-only <Base> | grep -E '(package-lock|yarn\.lock|pnpm-lock|poetry\.lock|requirements|pyproject)'   # PR mode: <Base> <Head>
 ```
 
 ## 4. Strengths to recognise (write them down)

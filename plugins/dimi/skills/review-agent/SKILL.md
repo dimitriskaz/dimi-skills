@@ -5,7 +5,7 @@ argument-hint: "[path or focus area]"
 context: fork
 agent: general-purpose
 background: false
-allowed-tools: Read, Grep, Glob, Bash(git ls-files *), Bash(git log *), Bash(git diff *), Bash(git rev-parse *), Bash(rg *)
+allowed-tools: Read, Grep, Glob, Bash(git ls-files *), Bash(git log *), Bash(git diff *), Bash(git rev-parse *), Bash(rg *), Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/*)
 disallowed-tools: Write, Edit, NotebookEdit
 ---
 
@@ -15,17 +15,7 @@ Review the agent code in this repository. Scope: $ARGUMENTS (if empty, review th
 
 ## Context
 
-Repository files:
-
-!`{ git -C "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" ls-files 2>/dev/null || echo "not a git repository"; } | head -400 || true`
-
-Current commit:
-
-!`git rev-parse --short HEAD 2>/dev/null || echo "not a git repository"`
-
-Client profile:
-
-!`cat "$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.claude/fde-client-profile.md" 2>/dev/null || echo "No client profile found. Use the default severities in the rubric."`
+!`bash ${CLAUDE_PLUGIN_ROOT}/scripts/state/repo-profile.sh rubric`
 
 ## Steps
 

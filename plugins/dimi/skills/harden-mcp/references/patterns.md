@@ -105,8 +105,8 @@ def downstream_token(user_token: str, downstream_audience: str) -> str:
     "type": "object",
     "properties": {
       "query": { "type": "string", "minLength": 2, "maxLength": 200, "description": "Name, email or company to match" },
-      "status": { "type": "string", "enum": ["active", "archived"], "default": "active" },
-      "limit": { "type": "integer", "minimum": 1, "maximum": 50, "default": 10 }
+      "status": { "type": "string", "enum": ["active", "archived"], "default": "active", "description": "Contact status to match; archived contacts are hidden unless asked for" },
+      "limit": { "type": "integer", "minimum": 1, "maximum": 50, "default": 10, "description": "Maximum contacts to return, 1 to 50" }
     },
     "required": ["query"],
     "additionalProperties": false
@@ -116,6 +116,7 @@ def downstream_token(user_token: str, downstream_audience: str) -> str:
     "properties": {
       "contacts": {
         "type": "array",
+        "maxItems": 50,
         "items": {
           "type": "object",
           "properties": {
@@ -126,9 +127,10 @@ def downstream_token(user_token: str, downstream_audience: str) -> str:
           "required": ["id", "name"]
         }
       },
+      "truncated": { "type": "boolean" },
       "next_cursor": { "type": ["string", "null"] }
     },
-    "required": ["contacts"]
+    "required": ["contacts", "truncated", "next_cursor"]
   },
   "annotations": { "readOnlyHint": true, "openWorldHint": false }
 }
@@ -136,31 +138,33 @@ def downstream_token(user_token: str, downstream_audience: str) -> str:
 
 ## 5. Success and error results
 
-Success, with structured content and a text copy for older clients:
+One envelope for every tool. Success: `structuredContent` carries the payload and matches `outputSchema`; `content` carries the same payload serialised as JSON in a text block, which the spec (2025-06-18 onward) says a tool returning structured content SHOULD do for clients that do not read it. A short summary may follow as a second text block.
 
 ```json
 {
-  "content": [{ "type": "text", "text": "2 contacts found: Ada Lovelace (Acme), Alan Turing (Acme)" }],
+  "content": [{ "type": "text", "text": "{\"contacts\": [{\"id\": \"c_101\", \"name\": \"Ada Lovelace\", \"company\": \"Acme\"}, {\"id\": \"c_102\", \"name\": \"Alan Turing\", \"company\": \"Acme\"}], \"truncated\": false, \"next_cursor\": null}" }],
   "structuredContent": {
     "contacts": [
       { "id": "c_101", "name": "Ada Lovelace", "company": "Acme" },
       { "id": "c_102", "name": "Alan Turing", "company": "Acme" }
     ],
+    "truncated": false,
     "next_cursor": null
-  }
+  },
+  "isError": false
 }
 ```
 
-Execution failure the model can act on (a result, not a JSON-RPC error):
+Execution failure the model can act on (a result, not a JSON-RPC error): `isError: true`, and the error payload `{code, message, retryable, hint?}` as JSON in the `content` text block. The payload may also carry fields the hint refers to, such as `next_cursor` in pattern 9's `item_too_large`, so the model reads them from a field rather than from free text. Leave out `structuredContent` on an error result: the TypeScript SDK client (checked in 1.32.2) validates any `structuredContent` against `outputSchema`, even when `isError` is true, so an error object there fails the call.
 
 ```json
 {
-  "content": [{ "type": "text", "text": "limit must be between 1 and 50, got 500. Retry with limit 50 and use next_cursor to page." }],
+  "content": [{ "type": "text", "text": "{\"code\": \"invalid_argument\", \"message\": \"limit must be between 1 and 50, got 500\", \"retryable\": false, \"hint\": \"Retry with limit 50 and use next_cursor to page.\"}" }],
   "isError": true
 }
 ```
 
-Use JSON-RPC errors only for protocol problems such as an unknown tool or malformed request.
+Use JSON-RPC errors only for protocol problems such as an unknown tool or malformed request. Never put response bodies, stack traces or vendor error text in `message` or `hint`.
 
 ## 6. SSRF guard for URL-fetching tools
 
@@ -245,39 +249,56 @@ async def origin_guard(request: Request, call_next):
 
 ## 9. Bounding a tool result (page size, byte cap, cursor)
 
-Cap the number of items, cap the serialised size, and tell the model when either cap was hit:
+Cap the number of items, cap the serialised size, and tell the model when either cap was hit. The result follows pattern 5 and validates against pattern 4's `outputSchema`:
 
 ```python
 import json
 
 MAX_ITEMS = 50
-MAX_BYTES = 60_000  # well under host caps; Claude Code truncates results at about 25,000 tokens
+MAX_BYTES = 40_000  # per copy: the result carries the payload twice (structuredContent and its JSON text). A host that
+                    # shows the model only the text copy sees ~10-13k tokens of JSON, inside Claude Code's default
+                    # 25,000-token MCP output cap; if yours forwards both copies (~27k tokens), lower this.
 
 
-def bounded_result(items: list[dict], cursor_for) -> dict:
-    """Return at most MAX_ITEMS items and at most MAX_BYTES of JSON, with a cursor when truncated.
+def tool_error(code: str, message: str, retryable: bool = False, hint: str = "", **fields) -> dict:
+    """An MCP error result (pattern 5): the payload as JSON text, no structuredContent.
 
-    If the first item alone exceeds MAX_BYTES, return an error result whose cursor points past it,
-    so the model can skip the oversized item instead of hitting an empty page with no cursor.
+    `fields` are extra payload fields the hint refers to (for example next_cursor).
+    review-agent's framework_tool_error is the non-MCP form of the same payload.
     """
-    page = items[:MAX_ITEMS]
-    truncated = len(items) > MAX_ITEMS
-    while page and len(json.dumps({"items": page}).encode()) > MAX_BYTES:
+    payload = {"code": code, "message": message, "retryable": retryable, **fields}
+    if hint:
+        payload["hint"] = hint
+    return {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": True}
+
+
+def bounded_result(contacts: list, cursor_for) -> dict:
+    """Return at most MAX_ITEMS contacts and at most MAX_BYTES of JSON, with a cursor when truncated.
+
+    If the first contact alone exceeds MAX_BYTES, return an error result with a next_cursor field past it,
+    so the model can skip the oversized item instead of hitting an empty page with no cursor. retryable
+    stays false: the same call would fail again; the call with next_cursor is a different one.
+    """
+    page = contacts[:MAX_ITEMS]
+    truncated = len(contacts) > MAX_ITEMS
+    while page and len(json.dumps({"contacts": page}).encode()) > MAX_BYTES:
         page = page[:-1]
         truncated = True
-    if not page and items:
-        return {
-            "isError": True,
-            "code": "item_too_large",
-            "items": [],
-            "truncated": True,
-            "next_cursor": cursor_for(items[0]),
-        }
-    return {
-        "items": page,
+    if not page and contacts:
+        return tool_error(
+            "item_too_large",
+            "the next contact is larger than the result size cap",
+            hint="Call again with the next_cursor from this error to skip it.",
+            next_cursor=cursor_for(contacts[0]),
+        )
+    structured = {
+        "contacts": page,
         "truncated": truncated,
         "next_cursor": cursor_for(page[-1]) if truncated and page else None,
     }
+    summary = f"{len(page)} contacts returned" + ("; more available, pass next_cursor to continue" if truncated else "")
+    content = [{"type": "text", "text": json.dumps(structured)}, {"type": "text", "text": summary}]  # JSON copy, then optional summary
+    return {"content": content, "structuredContent": structured, "isError": False}
 ```
 
-`cursor_for` turns the last returned item into an opaque, user-bound cursor (for example a signed `(user, last_id)` pair), so the next call cannot be replayed by another user. Declare `truncated` and `next_cursor` in `outputSchema` (pattern 4) and mention the cap in the description. Tested: 10 items pass untouched; 51 items return 50 with a cursor; 40 items of 5 KB return 11 under the byte cap with a cursor; a single 70 KB item returns the `item_too_large` error with a cursor past it; an empty list returns no cursor and no error.
+`cursor_for` turns the last returned item into an opaque, user-bound cursor (for example a signed `(user, last_id)` pair), so the next call cannot be replayed by another user. Declare `truncated` and `next_cursor` in `outputSchema` (pattern 4 does) and mention the cap in the description. Tested, with every success result validated against pattern 4's `outputSchema` using `jsonschema` and its first `content` block parsing back to `structuredContent`: 10 contacts pass untouched; 51 return 50 with a cursor; 40 contacts of 5 KB return 7 under the byte cap with a cursor; a single 70 KB contact returns the `item_too_large` error result with `next_cursor` as a payload field; an empty list returns no cursor and no error.

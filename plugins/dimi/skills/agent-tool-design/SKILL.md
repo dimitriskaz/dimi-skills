@@ -1,12 +1,14 @@
 ---
 name: "agent-tool-design"
 description: "Design or review a tool that an LLM agent can call: contract and schema written for the model, bounded and PII-minimised outputs, structured error envelopes, tenant scoping from claims, writes as human-accepted proposals, injection posture, per-tool tests and evals, and a no-tool-without-a-consumer rule."
+when_to_use: "Use when adding or changing a tool a model can call: an in-app assistant tool, an MCP tool, a function for a framework agent. Triggers: /dimi:agent-tool-design, \"design a tool for the assistant\", \"add a tool that…\", \"review this tool\", \"the model should be able to…\"."
 argument-hint: "[tool name or description]"
+disable-model-invocation: true
 ---
 
 # Agent tool design
 
-Use when adding or changing a tool a model can call — an in-app assistant tool, an MCP tool, a function for a framework agent. Triggers: `/dimi:agent-tool-design`, "design a tool for the assistant", "add a tool that…", "review this tool", "the model should be able to…". For the MCP server plumbing itself use an MCP-builder skill if one is installed (e.g. `anthropic-skills:mcp-builder`); this skill is about the *contract* and its safety, whatever the transport.
+For the MCP server plumbing itself use an MCP-builder skill if one is installed (e.g. `anthropic-skills:mcp-builder`); this skill is about the *contract* and its safety, whatever the transport.
 
 ## 0. Start from the job, not the API
 
@@ -17,7 +19,7 @@ Use when adding or changing a tool a model can call — an in-app assistant tool
 
 ## 1. Contract written for the model
 
-**Name**: `verb_noun`, specific (`get_test_settings`, not `settings`). No two tools share a verb+noun pair.
+**Name**: specific, built from a verb and a noun (`get_test_settings`, not `settings`). No two tools share a verb+noun pair. On every MCP server, prefix each tool with the service namespace and keep one word order across the server; the examples here use `crm_contacts_search` (harden-mcp check D1).
 
 **Description** (the model reads this, not the code): when to use it, when *not* to (and what to use instead), what it returns, the limits (max rows, window), and one short example call. Describe the data in the model's terms, not the database's.
 
@@ -25,16 +27,16 @@ Use when adding or changing a tool a model can call — an in-app assistant tool
 - Enums for anything enumerable; bounded integers for windows and limits; regex/format for ids; no free-form query strings that reach a query language.
 - Required vs optional explicit; optional fields have safe defaults; no parameter the server will ignore.
 - Never a tenant, actor or permission field: those come from the session or job claims, never from the model.
-- Idempotency key on anything that creates.
+- No idempotency key in the model-facing schema: the harness or server derives it from the run for anything that creates (section 4), so a retried or resumed call cannot mint a new one.
 
 **Output schema** — stable and bounded:
-- A fixed shape with a machine-readable `status`; ids and short fields, not whole raw rows; a `truncated: true` flag plus a cursor when a cap is hit, never a silent partial list; a stated `max_items`.
+- A fixed shape with a machine-readable `status` (`ok` or `error`); ids and short fields, not whole raw rows; a `truncated: true` flag plus a cursor when a cap is hit, never a silent partial list; a stated `max_items`.
 - Estimate the token size of a maximal response and keep it within the budget you give one tool call; summarise or aggregate (per host, per severity) instead of listing every item.
 - Only the fields the job needs. Personal data (emails, user names, IPs, locations, command text) is projected out unless the job needs it, and then the description says so. Prefer stable object ids to people's identifiers.
 
-**Error envelope**: `{status: 'error', code, retryable, hint}`. `hint` tells the model what to do ("use `list_x` first to get an id"). Never include response bodies, query strings, stack traces or vendor error text.
+**Error envelope**: `{status: 'error', code, message, retryable, hint?}`, plus any field the hint refers to (for example `next_cursor`), so the model never has to parse it out of free text. `message` says what went wrong in one sentence; `hint` tells the model what to do ("use `list_x` first to get an id"). Never include response bodies, query strings, stack traces or vendor error text.
 
-**MCP mapping**: on an MCP server the output schema is the tool's `outputSchema`, the success payload goes in `structuredContent` (plus a text copy), and the error envelope is a result with `isError: true` whose text carries `code` and `hint`; JSON-RPC errors are for protocol problems only (see `${CLAUDE_PLUGIN_ROOT}/skills/harden-mcp/references/checklist.md`, D4 and D5).
+**MCP mapping**: on an MCP server `status` becomes `isError`. The output schema is the tool's `outputSchema`; a success result carries the payload in `structuredContent` and the same payload serialised as JSON in a `content` text block (the spec's recommendation for clients that do not read `structuredContent`; a short summary may follow as a second text block); an error result has `isError: true`, the error payload `{code, message, retryable, hint?}` as JSON in its `content` text, and no `structuredContent`. JSON-RPC errors are for protocol problems only (see `${CLAUDE_PLUGIN_ROOT}/skills/harden-mcp/references/checklist.md`, D4 and D5, and pattern 5 in its `patterns.md`).
 
 ## 2. Reads
 
@@ -51,7 +53,7 @@ Use when adding or changing a tool a model can call — an in-app assistant tool
 
 ## 4. Writes are proposals
 
-The model never writes directly unless the client profile permits direct writes for that action class:
+Writes are human-accepted proposals by default; a reversible write may run without approval only when the client profile explicitly allows it (for that action class) and the rule of two still holds, with a sample reviewed by a person. Irreversible or financial writes are always proposals, unless on an MCP server the approval is enforced by the host instead (an honest `destructiveHint: true` with the host's confirmation required in the documented setup; harden-mcp D11):
 1. The tool **validates** the model's request (schema, registry of allowed types, allowlisted keys) and **stores the exact patch or pairs server-side** under a proposal id, bound to the tenant, the actor and the current version of the target.
 2. The tool returns the proposal id and a human-readable summary for a review card. It writes nothing.
 3. A person accepts. The commit route takes **only the proposal id**, re-checks tenant and kind *before* any replay check, re-validates against the stored version (refuse on stale), applies what the server stored — never anything from the browser or the model — and records the commit.
@@ -61,7 +63,7 @@ The model never writes directly unless the client profile permits direct writes 
 Ambiguity is refused, not guessed: zero or several matches for a reference returns an error with a hint, never the first match.
 
 **Side-effect discipline for any tool that writes** (proposal, or a direct write where the client profile permits it):
-- **Idempotency key derived from the run**, e.g. `thread_id + step_id` or the tool-call id — never a `uuid4()`/`randomUUID()` minted inside a step that can re-run on retry or resume. If the target API has no idempotency support, check an outbox/dedup table keyed the same way before sending.
+- **Idempotency key derived from the run**, e.g. `thread_id + step_id` plus the tool-call id (stable only if the model message is checkpointed before the tool runs; otherwise the call's ordinal within the step). An MCP server sees no run or tool-call id: the host passes the key outside the model's schema (e.g. `_meta`), or the proposal id is the anchor. Never a `uuid4()`/`randomUUID()` minted inside a step that can re-run on retry or resume. If the target API has no idempotency support, check an outbox/dedup table keyed the same way before sending.
 - **Approval bound to the exact call**: store a hash of tool name + canonical arguments; execute only if the hash matches; single-use; expires; records the approver. Never re-generate arguments after approval.
 - **No side effect before an interrupt** in a step that re-runs from its start on resume (graph frameworks do this); put the write after the approval point or make it idempotent.
 - **Compensation** for multi-step writes across systems: record the undo action, or make the sequence recoverable.
@@ -70,7 +72,7 @@ Ambiguity is refused, not guessed: zero or several matches for a reference retur
 ## 5. Injection and truthfulness posture
 
 - Tool results are **data**. Record text, connector text and document content reach the model only as tool results; the system prompt instructs the model to treat them as untrusted and never as instructions.
-- Everything the model outputs is re-validated on the server before it does anything; a person accepts every write.
+- Everything the model outputs is re-validated on the server before it does anything; a person accepts every write unless section 4's profile exception applies.
 - The system prompt does not let the model assert facts the tools have not returned ("test X already covers this" when the tool never read X's status). If a rule needs a fact, add the field to the tool output.
 - Logs carry tool name, tenant, actor id, key names and counts; never argument values that could hold personal data, never outputs.
 
@@ -89,9 +91,9 @@ Version the contract; add parameters compatibly; deprecate with an alias period 
 
 ## 8. Output: tool spec
 ```
-# Tool: <verb_noun>
+# Tool: <name>
 Job: <one sentence>            Consumer today: <prompt rule / workflow>
-Kind: read | proposal          Tenant/actor: from claims
+Kind: read | proposal | direct write (client-profile row: …)   Tenant/actor: from claims
 Description (for the model): ...
 Input schema: ...              Output schema: ... (max_items, truncated+cursor)
 Errors: codes → hint

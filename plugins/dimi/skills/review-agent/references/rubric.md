@@ -11,8 +11,8 @@ Search hints use ripgrep syntax (`rg -n`, one `-e` per alternative so they paste
 | Severity | Use when |
 | --- | --- |
 | Critical | Exploitable now or causes irreversible harm: model output executed without a sandbox, irreversible or financial action with no approval, cross-user or cross-tenant data access, secrets exposed to the model or logs, unrestricted data egress from an agent that reads untrusted content |
-| High | Likely to cause an incident or failed security review: no budgets or step limits, non-idempotent writes that can retry, in-memory state in production, no authorisation inside tools, no tracing |
-| Medium | Weakens reliability, cost control or auditability: no fallback model, unbounded tool outputs, floating model aliases, no eval set in CI, unstable prompt prefix |
+| High | Likely to cause an incident or failed security review: no budgets or step limits, a reversible write with no approval and no client-profile permission (B2; with no client profile, as on an internal product, an ADR that allows it counts as the permission, and without one it is Medium), non-idempotent writes that can retry, in-memory state in production, no authorisation inside tools, no tracing, unbounded tool outputs that can return bulk or personal data |
+| Medium | Weakens reliability, cost control or auditability: no fallback model, other unbounded tool outputs, floating model aliases, no eval set in CI, unstable prompt prefix |
 | Low | Hygiene and clarity: thin tool descriptions, missing trace attributes, naming |
 
 If the client profile's "Severity overrides for reviews" table names an id from this rubric, use that severity and cite the row in the finding; otherwise adjust severity to the profile's risk tiers when one exists.
@@ -30,8 +30,8 @@ If the client profile's "Severity overrides for reviews" table names an id from 
 
 | ID | Check | What good looks like | Search hints |
 | --- | --- | --- | --- |
-| B1 | Stable idempotency keys | Write tools pass an idempotency key derived from run and step identity, or check an outbox or dedup table before sending | `rg -n -e 'uuid4\(' -e 'uuid\.uuid4' -e 'randomUUID\(' -e 'uuidv4\(' -e 'nanoid\(' -e 'time\.time\(\)'` inside tools or steps that perform writes; flag keys generated inside a step that can re-run |
-| B2 | Approval for irreversible actions | Payments, deletes, external sends, merges and deploys require human approval | Find write tools, then look for an interrupt, `needs_approval`, `requireApproval`, `request_info`, `require_confirmation`, `HumanInTheLoopMiddleware` or `interrupt(` guarding them |
+| B1 | Stable idempotency keys | Write tools pass an idempotency key derived from run and step identity, or check an outbox or dedup table before sending. Run + step + tool-call id is stable only if the model message is checkpointed before the tool runs; otherwise use run + step + call ordinal. An MCP server sees no run or tool-call id, so the host passes the key outside the model's schema (for example in `_meta`) or the proposal id is the anchor | `rg -n -e 'uuid4\(' -e 'uuid\.uuid4' -e 'randomUUID\(' -e 'uuidv4\(' -e 'nanoid\(' -e 'time\.time\(\)'` inside tools or steps that perform writes; flag keys generated inside a step that can re-run |
+| B2 | Approval for writes | Writes are human-accepted proposals by default. Approval may sit at any layer if it is enforced and documented: a harness interrupt, a server-side proposal, or for MCP tools the host's confirmation driven by an honest `destructiveHint`. Irreversible actions (payments, deletes, external sends, merges, deploys) always require human approval. A reversible write runs without approval only when the client profile explicitly allows it and the rule of two (D2) still holds, with a sample reviewed afterwards; a reversible write with neither approval nor that permission is a finding | Find write tools, then look for an interrupt, `needs_approval`, `requireApproval`, `request_info`, `require_confirmation`, `HumanInTheLoopMiddleware` or `interrupt(` guarding them; for unguarded reversible writes, check the client profile |
 | B3 | Approval bound to the exact call | The approved action is stored as a hash of tool name and arguments, executed only if it matches, single-use, with an expiry and an approver check | Read the resume path: does it re-generate arguments after approval? |
 | B4 | Compensation | Multi-step writes record undo actions or are otherwise recoverable on failure | Look for saga, rollback or compensation logic around multi-system writes |
 | B5 | Side effects before interrupts | No side effect sits before an interrupt or approval point in a step that re-runs from its start on resume | LangGraph nodes re-run from the start on resume; check code above `interrupt(` |
@@ -50,7 +50,7 @@ If the client profile's "Severity overrides for reviews" table names an id from 
 | ID | Check | What good looks like | Search hints |
 | --- | --- | --- | --- |
 | D1 | Untrusted inputs identified | Every source of untrusted text is known: web fetch, search, email, uploaded files, tickets, RAG documents, MCP and A2A results | List them in the report inventory |
-| D2 | Rule of two | No agent combines untrusted input, sensitive data or systems, and the ability to change state or communicate externally without human approval | Map each agent against the three properties |
+| D2 | Rule of two | No agent combines all three of: untrusted input; access to sensitive data or systems; the ability to change state or communicate externally, without human approval | Map each agent against the three properties |
 | D3 | Outbound channels gated | Tools that send data out (HTTP fetch to arbitrary URLs, email, webhooks, rendering images or links from model output) are allowlisted or approval-gated | `rg -n -e 'requests\.get' -e 'requests\.post' -e httpx -e 'fetch\(' -e axios -e send_email -e smtp -e webhook` in tool code |
 | D4 | Untrusted content labelled | Retrieved or fetched content is wrapped in delimiters with its source, kept out of the instruction section | Read prompt assembly code |
 | D5 | MCP servers vetted | Only allowlisted servers, versions pinned, tool definitions reviewed; remote servers behind a gateway | `rg -n -e mcpServers -e MCPServer -e McpToolset -e MultiServerMCPClient -e mcp_servers` and config files such as `.mcp.json` |
@@ -97,7 +97,7 @@ If the client profile's "Severity overrides for reviews" table names an id from 
 
 | ID | Check | What good looks like | Search hints |
 | --- | --- | --- | --- |
-| I1 | Eval set exists | Real cases with expected outcomes, versioned in the repo | `rg -l -e eval -e golden -e testset -e dataset -g '!node_modules'` |
+| I1 | Eval set exists | Cases with expected outcomes, versioned in the repo. Eval data is real-shaped by default: the structure, edge cases and expected outcomes of real work, with synthetic content. Real client cases are used only anonymised, with the client's consent, and stored under the client's data policy, never in this plugin's repository. | `rg -l -e eval -e golden -e testset -e dataset -g '!node_modules'` |
 | I2 | Evals in CI | Suite runs on pull requests and on model, prompt, tool or index changes | Check CI workflow files |
 | I3 | Repeated trials | Cases run several times; pass rate and pass^k reported against an agreed tolerance | Read the eval runner |
 | I4 | Pinned models | Dated model versions in production config; no `-latest` or floating aliases | `rg -n -e 'latest"' -e '\-latest' -e 'model="[a-z0-9.-]+"'` and review model config |

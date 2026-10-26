@@ -1,18 +1,18 @@
 ---
 name: "pr-correctness-scalability-review"
 description: "Deep code-review checklist for correctness, scalability and conventions on a working-tree or PR diff: asymmetric paths, run-it-twice idempotency and races, silent caps, unbounded reads, swallowed errors, copied plumbing, stale claims, what the tests prove. Use alone or as stage 2 of pr-self-review."
+allowed-tools: Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(grep *)
 ---
 
 # Correctness, scalability and conventions review
 
-Stage 2 of `pr-self-review`; also usable alone ("scale pass on my changes", "correctness check before I commit"). Input: a diff file `$DIFF` (the working tree against the base branch, including untracked files, or a PR's own base...head) and the code readable as it is now. Output: findings in the `pr-self-review` interchange format, plus `STRENGTHS:` and `CHECKED_CLEAN:` bullets.
+Stage 2 of `pr-self-review`; also usable alone ("scale pass on my changes", "correctness check before I commit"). Input: a diff file (`Diff` in the Review context: the working tree against the base branch, including untracked files, or a PR's own base...head) and the code as it is now (PR mode: at `Head`, `git show <Head>:<path>`). Output: findings in the `pr-self-review` interchange format, plus `STRENGTHS:` and `CHECKED_CLEAN:` bullets.
 
-If run alone, build the diff first. `$OUT` is the session's scratchpad directory if it gives one (set `OUT=<scratchpad path>` before the block), else `$TOP/../pr-correctness-scalability-review-<repo>/` next to the checkout (absolute, never inside the repo); `$DIFF=$OUT/review.diff`. Resolve the options here (they are substituted only in this file), then run §1 of `${CLAUDE_PLUGIN_ROOT}/skills/pr-self-review/references/diff-and-policy.md` (merge-base diff plus `--no-index` diffs for untracked files into `$DIFF`; sets `$BASE`):
+As stage 2 of `pr-self-review`, use that skill's diff and the Review context it printed. Alone, build the diff first — put the session's scratchpad path in the second argument if it gives one (else `''`; the output then goes to `<top>/../pr-correctness-scalability-review-<repo>/`, absolute, never inside the repo):
 ```bash
-DB='${user_config.default_branch}'; case "$DB" in '$'*) DB='';; esac; [ -z "$DB" ] && DB=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||'); DB=${DB:-main}
-TOP=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "not a git repository" >&2; exit 1; }
-REPO=$(basename "$TOP"); OUT=${OUT:-$TOP/../pr-correctness-scalability-review-$REPO}
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/review.sh build pr-correctness-scalability-review '' '${user_config.default_branch}' '${user_config.demo_marker}' '${user_config.demo_branch}' '${user_config.ticket_regex}' '${user_config.local_checks}'
 ```
+It prints the Review context (`Top`, `Out`, `Diff`, `Base`, `Head`, `Report`, options); write those values literally into later commands — each Bash call is a fresh shell, and a command that expands a variable cannot be pre-approved.
 
 Use the `SCALE` line from the Repo policy block (`${CLAUDE_PLUGIN_ROOT}/skills/pr-self-review/references/diff-and-policy.md` §4; the repo's realistic one-year volumes). Every "does this scale" question is answered against those numbers, not the demo dataset.
 
@@ -39,7 +39,7 @@ For every import, sync, collect, job, commit or migration-like path:
 
 ### Lens 3 — Every constant is a cliff
 ```bash
-grep -nE '^\+.*(MAX_|_LIMIT|PAGE_SIZE|_PAGES|TIMEOUT|single_page|\.slice\(0|limit[:=]\s*[0-9]|\bcap\b)' $DIFF
+grep -nE '^\+.*(MAX_|_LIMIT|PAGE_SIZE|_PAGES|TIMEOUT|single_page|\.slice\(0|limit[:=]\s*[0-9]|\bcap\b)' <Diff>
 ```
 For each: (a) what happens **past** the cap — error, banner, or silent truncation returned as `ok`? (b) is the cap on both sides of a comparison (the listing capped at 5k, the existing-records lookup capped at 5.2k → everything past looks absent and is re-created)? (c) does it match the service (30 s client timeout vs a 3-minute server limit; multi-year windows)? (d) does truncation produce **wrong numbers** behind a "partial" banner? Wrong headline numbers behind a banner are wrong numbers.
 
@@ -107,16 +107,16 @@ Constrained values as free-text JSON instead of pickers; new colour/status token
 
 ## Quick greps (read around every hit)
 ```bash
-grep -nE '^\+\s*(for|while)\b' $DIFF                                        # then look inside each loop for await/fetch/request
-grep -nE '^\+.*(Date\.now\(\)|new Date\(\)|Date\.parse|datetime\.now|utcnow)' $DIFF
-grep -nE '^\+.*\.(startsWith|startswith)\(' $DIFF
-grep -nE '^\+.*(setInterval|visibilitychange|addEventListener\(.focus)' $DIFF
-grep -nE '^\+(.*(new Map\(|_inflight|_cache\b|lru_cache)|\s*global )' $DIFF      # in-process state
-grep -nE '^\+.*\.(trim|strip|lower|toLowerCase|toUpperCase)\(' $DIFF       # check the partner path
-grep -nE '^\+.*(catch\s*\(|catch\s*\{|except\b)' $DIFF                      # what is swallowed?
-grep -niE '^\+.*(read once|cached|idempotent|lock|lease|never|always)' $DIFF # claims
-grep -nE '^\+.*(TODO|FIXME|XXX|HACK)' $DIFF
-grep -nE '^\+\s*(export (const|function|class)|def |class )' $DIFF          # new exports: find a consumer for each
+grep -nE '^\+\s*(for|while)\b' <Diff>                                        # then look inside each loop for await/fetch/request
+grep -nE '^\+.*(Date\.now\(\)|new Date\(\)|Date\.parse|datetime\.now|utcnow)' <Diff>
+grep -nE '^\+.*\.(startsWith|startswith)\(' <Diff>
+grep -nE '^\+.*(setInterval|visibilitychange|addEventListener\(.focus)' <Diff>
+grep -nE '^\+(.*(new Map\(|_inflight|_cache\b|lru_cache)|\s*global )' <Diff>      # in-process state
+grep -nE '^\+.*\.(trim|strip|lower|toLowerCase|toUpperCase)\(' <Diff>       # check the partner path
+grep -nE '^\+.*(catch\s*\(|catch\s*\{|except\b)' <Diff>                      # what is swallowed?
+grep -niE '^\+.*(read once|cached|idempotent|lock|lease|never|always)' <Diff> # claims
+grep -nE '^\+.*(TODO|FIXME|XXX|HACK)' <Diff>
+grep -nE '^\+\s*(export (const|function|class)|def |class )' <Diff>          # new exports: find a consumer for each
 ```
 
 ## Strengths to recognise (write them down)

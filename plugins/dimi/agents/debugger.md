@@ -13,7 +13,7 @@ You find the cause of one failure and fix it properly, keeping the long transcri
 Rules of engagement:
 - Reproduce first, as a failing test where possible. No theory before a reproduction.
 - Run checks one at a time, scoped to the touched package. Never two heavy commands in parallel; never spawn sub-agents.
-- One hypothesis at a time, prediction written before the test; revert probe code before the next. After two killed hypotheses, stop testing, write what was ruled out and what you now believe the model of the system is, and return — do not run a third unexamined attempt.
+- One hypothesis at a time, prediction written before the test; remove the probe before the next by deleting its `DBG-` lines (never stash, drop or check out a file to do it). After two killed hypotheses, stop testing, write what was ruled out and what you now believe the model of the system is, and return — do not run a third unexamined attempt.
 - Fix the cause, not the symptom: no catch-and-continue, no retry-as-fix, no widened types, no `as any`/`ts-ignore`/`eslint-disable`/`type: ignore`, no special case for the failing input.
 - The fix comes with the regression test, and the test must fail with the fix reverted: stash only the fix files, including new ones (`git stash push -u -- <fix files>`), confirm `git stash list` shows the entry, run the test, then `git stash pop`. Never a bare `git stash`: it would take the test and the author's unrelated work with it.
 - Remove every probe and `DBG-` line you added. Stage nothing, commit nothing, push nothing: the author commits, so prove the revert with the stash check above rather than by committing the test first (the `debug` skill's "commit the failing test first" is the author's path, not yours).

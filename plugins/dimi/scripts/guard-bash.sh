@@ -10,9 +10,11 @@
 #   - --no-verify / -n on commit, --no-verify on push
 #   - sweeping staging: `git add -A|--all|-u|--update|.|./|:/|*|..`, `git stage …`, `git commit -a|--all`
 #   - commits whose -m message lacks the ticket key (set ticket_regex to `none` to disable)
-#   - `git -C <dir>` / `--git-dir` / `--work-tree` with any of the above subcommands (target cannot be verified)
+#   - `git -C <relative or hidden dir>` / `--git-dir` / `--work-tree` with any of the above subcommands (target cannot
+#     be verified); `git -C /absolute/dir` is checked as if run in that directory
 #
-# A seatbelt, not a security boundary: a target hidden in a variable, `xargs`, `eval` or `sh -c` is not seen.
+# A seatbelt, not a security boundary: a target hidden in a variable, `xargs`, `eval`, `sh -c` or a heredoc fed
+# to a shell (`bash <<EOF`) is not seen.
 # Quoted strings that contain whitespace are ignored for command detection, so a commit message or an echo
 # that mentions `git push origin main` is not treated as a push.
 # Portable to bash 3.2 (macOS): no `read -a`, no empty-array expansion without a guard.
@@ -30,17 +32,19 @@ cd "${CLAUDE_PROJECT_DIR:-.}" 2>/dev/null || true
 # Plugin options (CLAUDE_PLUGIN_OPTION_*) first, env vars as fallback, then defaults.
 TICKET_REGEX="${CLAUDE_PLUGIN_OPTION_TICKET_REGEX-${GUARD_TICKET_REGEX-[A-Z][A-Z0-9]+-[0-9]+}}"
 case "$TICKET_REGEX" in none|NONE|None) TICKET_REGEX="";; esac
+TICKET_REGEX=$(printf '%s' "$TICKET_REGEX" | sed 's/\\d/[0-9]/g')   # grep -E has no \d: PROJ-\d+ would match nothing
 PROTECTED_BRANCHES="${CLAUDE_PLUGIN_OPTION_PROTECTED_BRANCHES:-${GUARD_PROTECTED_BRANCHES:-main|master|production}}"
 # The repo's default branch is always protected, whatever it is called (added once).
-DEFAULT_BRANCH="${CLAUDE_PLUGIN_OPTION_DEFAULT_BRANCH:-$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||')}"
+DEFAULT_BRANCH="${CLAUDE_PLUGIN_OPTION_DEFAULT_BRANCH:-${GUARD_DEFAULT_BRANCH:-$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||')}}"
 DEMO_BRANCH="${CLAUDE_PLUGIN_OPTION_DEMO_BRANCH:-${GUARD_DEMO_BRANCH:-}}"
 # --------------------------------------------------------------------------------
 
 block() { printf 'Blocked by dimi guard-bash: %s\n' "$1" >&2; exit 2; }
-current_branch() { git rev-parse --abbrev-ref HEAD 2>/dev/null || true; }
-is_protected() { # exact name match against the pipe-separated list (not a regex)
+current_branch() { if [ -n "${GDIR:-}" ]; then git -C "$GDIR" rev-parse --abbrev-ref HEAD 2>/dev/null || true; else git rev-parse --abbrev-ref HEAD 2>/dev/null || true; fi; }
+is_protected() { # name or shell glob (release/*) match against the pipe-separated list (not a regex)
   local b="$1" p; local IFS='|'
-  for p in $PROTECTED_BRANCHES; do [ "$p" = "$b" ] && return 0; done
+  # shellcheck disable=SC2254
+  for p in $PROTECTED_BRANCHES; do case "$b" in $p) return 0 ;; esac; done
   [ -n "$DEFAULT_BRANCH" ] && [ "$DEFAULT_BRANCH" = "$b" ] && return 0
   return 1
 }
@@ -70,10 +74,24 @@ blank_quoted() {
   [ -n "$q" ] && out="$out$buf"
   printf '%s' "$out"
 }
-CMD_S=$(blank_quoted "$CMD")
+# strip_heredocs: drop heredoc bodies (from the line after `<<WORD` / `<<-'WORD'` up to the WORD line), so a
+# commit message fed through `git commit -F - <<EOF` that mentions `git push origin main` is not read as a push.
+# Fail closed: when no closing WORD line follows (`1<<n`, `echo "a <<b"`), the held lines are checked after all.
+# `<<<` here-strings are not heredocs.
+strip_heredocs() {
+  printf '%s\n' "$1" | awk '
+    d != "" { held = held $0 "\n"; t = $0; sub(/^\t+/, "", t); if (t == d) { d = ""; held = "" }; next }
+    { print
+      if (match($0, /(^|[^<])<<-?[[:space:]]*["\047]?[A-Za-z_][A-Za-z0-9_]*["\047]?/)) {
+        d = substr($0, RSTART, RLENGTH); sub(/^[^<]*<<-?[[:space:]]*["\047]?/, "", d); sub(/["\047]$/, "", d); held = "" } }
+    END { if (d != "") printf "%s", held }'
+}
+CMD_S=$(blank_quoted "$(strip_heredocs "$CMD")")
 
 # A git invocation with optional global options before the subcommand.
-GIT_RE='\bgit([[:space:]]+(-C[[:space:]]+[^[:space:]]+|-c[[:space:]]+[^[:space:]]+|--[a-z-]+(=[^[:space:]]+)?))*[[:space:]]+'
+# POSIX ERE only (macOS grep has no \b): "git" at the start or after a non-word character, so /usr/bin/git and
+# (git count but mygit and gitk do not. The one leading character is stripped from each match below.
+GIT_RE='(^|[^[:alnum:]_-])git([[:space:]]+(-C[[:space:]]+[^[:space:]]+|-c[[:space:]]+[^[:space:]]+|--[a-z-]+(=[^[:space:]]+)?))*[[:space:]]+'
 strip_git_prefix() { printf '%s' "$1" | sed -E 's/^git([[:space:]]+(-C[[:space:]]+[^[:space:]]+|-c[[:space:]]+[^[:space:]]+|--[a-z-]+(=[^[:space:]]+)?))*[[:space:]]+//'; }
 has_repo_override() { printf '%s' "$1" | grep -qE -- '^git([[:space:]]+(-C[[:space:]]+[^[:space:]]+|-c[[:space:]]+[^[:space:]]+|--[a-z-]+(=[^[:space:]]+)?))*[[:space:]]+(-C[[:space:]]|--git-dir|--work-tree)|^git[[:space:]]+(-C[[:space:]]|--git-dir|--work-tree)'; }
 
@@ -195,10 +213,18 @@ check_pull() { # args after `pull`; $PULL_CFG set when -c pull.rebase=true was g
   return 0
 }
 
-# ---- walk every git segment (up to the next ; | & or newline) ---------------------------
+# ---- walk every git segment (up to the next ; | & ) ` or newline) -----------------------
 while IFS= read -r seg; do
   [ -z "$seg" ] && continue
-  has_repo_override "$seg" && block "git -C/--git-dir/--work-tree with ${seg#git } — the target repository cannot be verified. Run git from the project root."
+  # `git -C /absolute/dir …` (a worktree, as the implementer agent uses) is checked as if run in that directory.
+  # A relative or hidden path, several -C, --git-dir and --work-tree still block: the target cannot be verified.
+  GDIR=""
+  if printf '%s' "$seg" | grep -qE -- '^git[[:space:]]+-C[[:space:]]+/[^[:space:]$`]*[[:space:]]'; then
+    d=$(printf '%s' "$seg" | sed -E 's/^git[[:space:]]+-C[[:space:]]+([^[:space:]]+).*/\1/')
+    s2=$(printf '%s' "$seg" | sed -E 's/^git[[:space:]]+-C[[:space:]]+[^[:space:]]+/git/')
+    if [ -d "$d" ] && git -C "$d" rev-parse --git-dir >/dev/null 2>&1 && ! has_repo_override "$s2"; then GDIR=$d; seg=$s2; fi
+  fi
+  has_repo_override "$seg" && block "git -C/--git-dir/--work-tree with ${seg#git } — the target repository cannot be verified. Use an absolute -C path, or run git from the project root."
   PULL_CFG=0; printf '%s' "$seg" | grep -qE -- '-c[[:space:]]+pull\.rebase=(true|1)' && PULL_CFG=1
   rest=$(strip_git_prefix "$seg")
   sub=${rest%%[[:space:]]*}
@@ -215,7 +241,7 @@ while IFS= read -r seg; do
   printf '%s' "$seg" | grep -qE -- '(^|[[:space:]])--no-verify([[:space:]]|$)' && [ "$sub" = push ] \
     && block "--no-verify skips the repo's git hooks. Fix the failing hook instead."
 done <<EOF
-$(printf '%s\n' "$CMD_S" | grep -oE -- "${GIT_RE}(push|add|stage|commit|rebase|pull)\b[^;|&]*" || true)
+$(printf '%s\n' "$CMD_S" | grep -oE -- "${GIT_RE}(push|add|stage|commit|rebase|pull)[^;|&)\`]*" | sed -E 's/^[^g]//' || true)
 EOF
 
 exit 0

@@ -1,14 +1,15 @@
 # --- Paste into your repo's CLAUDE.md (keep the whole file under ~200 lines) ---
 
 # Commands
-- Lint: `pnpm lint` · Typecheck: `pnpm typecheck` (or `pnpm --filter ./<pkg> typecheck`) · Unit: `pnpm test` · Python: `ruff check .`
+- Lint: `pnpm lint` · Typecheck: `pnpm typecheck` · Unit: `pnpm test` · Python: `ruff check .`, `ruff format --check .` · Format check: `pnpm exec prettier --check .`
+- Per-package runs (`pnpm --filter ./<pkg> typecheck`) ask each time unless `.claude/settings.json` allows them for that package.
 - Browser specs: `pnpm exec playwright test <spec>` — run only the specs you touched; the full suite is for CI.
 - Prefer the narrowest check that proves the change (one test file, one package) over the whole suite.
 
 # Speed
 - Run the narrowest check that proves the change: one test file, one package's typecheck. The full suite is CI's job.
 - Run heavy commands (tests, typecheck, builds) ONE AT A TIME. Never start two in parallel shells; they fight for CPU and both get slower.
-- Do not spawn agents or forks to run checks. Delegate reads to the `explore` subagent; delegate verification to `verifier`; everything else runs in this session.
+- No parallel agents or forks for checks: to delegate them, use one `verifier` at a time, run serially. Delegate reads to the `explore` subagent; everything else runs in this session.
 - Work on at most one task in this session. A second task is a `/clear` or a second worktree, not a side quest.
 
 # Workflow

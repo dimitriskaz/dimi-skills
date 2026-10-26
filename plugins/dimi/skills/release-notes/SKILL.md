@@ -26,14 +26,15 @@ Without Playwright or an auth fixture, the skill still delivers the notes and th
 ## 1. Collect what shipped
 
 ```bash
-DB='${user_config.default_branch}'; case "$DB" in '$'*) DB='';; esac; [ -z "$DB" ] && DB=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||'); DB=${DB:-main}
-LAST=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-SINCE=$( [ -n "$LAST" ] && git log -1 --format=%cs "$LAST" || echo "1970-01-01" )
-git log --merges --first-parent --format='%h %s' ${LAST:+$LAST..}HEAD                 # merge-commit repos
-git log --first-parent --format='%h %s' ${LAST:+$LAST..}HEAD | grep -E '\(#[0-9]+\)$'  # squash-merge repos: PR number in the subject
-gh pr list --state merged --base "$DB" --limit 500 --search "merged:>=$SINCE" --json number,title,body,labels,mergedAt,files
+RANGE='<range from §0, empty when none>'                                              # e.g. v1.4.0..HEAD
+[ -z "$RANGE" ] && { LAST=$(git describe --tags --abbrev=0 2>/dev/null); RANGE=${LAST:+$LAST..}HEAD; }   # default: last tag..HEAD
+git log --merges --first-parent --format='%h %s' "$RANGE"                            # merge-commit repos
+git log --first-parent --format='%h %s' "$RANGE" | grep -E '\(#[0-9]+\)$'            # squash-merge repos: PR number in the subject
+git log --first-parent --format='%s' "$RANGE" \
+  | sed -nE -e 's/^Merge pull request #([0-9]+).*/\1/p' -e 's/.*\(#([0-9]+)\)$/\1/p' | sort -un \
+  | while read -r n; do gh pr view "$n" --json number,title,body,labels,mergedAt,files; done   # the PRs in exactly this range
 ```
-Use whichever `git log` form returns rows for this repo; the PR list is the authority for titles and bodies. One row per PR (or per commit when PRs are not used): ticket key, type (feat/fix/chore/refactor), **area/module** (from paths and labels), user-facing or internal, breaking (schema, API, config, permission changes), the PR body's "What/Why/How tested". Drop pure chores and dependency bumps from the notes unless they change behaviour; keep them in a collapsed "Internal" section.
+Use whichever `git log` form returns rows for this repo; the PR list (built from the PR numbers in those subjects, so it covers exactly the range, not a date window) is the authority for titles and bodies. One row per PR (or per commit when PRs are not used): ticket key, type (feat/fix/chore/refactor), **area/module** (from paths and labels), user-facing or internal, breaking (schema, API, config, permission changes), the PR body's "What/Why/How tested". Drop pure chores and dependency bumps from the notes unless they change behaviour; keep them in a collapsed "Internal" section.
 
 ## 2. Draft the notes
 
@@ -68,12 +69,12 @@ Sources for scenes: the PR bodies, the e2e specs that reference the feature (the
 
 First check the preconditions: `@playwright/test` is a dependency of the repo, a Playwright config exists, and an auth fixture (`storageState` or a login helper) exists. If any is missing, do not improvise one: write `scenes.yaml`, skip the capture, list every scene under "could not capture: <no Playwright | no config | no auth fixture>", and deliver the notes (§5–7) without images.
 
-Write (or update) one small capture spec in the repo's Playwright language at `docs/tools/docs-capture.spec.(ts|js)` with its **own config** `docs/tools/playwright.capture.config.(ts|js)` (`testDir: 'docs/tools'`, importing the repo's config for `baseURL`, `storageState` and projects), run with `--config`. The Playwright runner only discovers files under the active config's `testDir`, so this keeps the capture out of the repo's default `playwright test` run — a spec placed inside the e2e `testDir` would be executed by every CI run of the suite. (Alternative, only when the repo insists on one config: put the spec under its `testDir` with `test.skip(!process.env.DOCS_CAPTURE, 'docs capture only')` at the top.) The spec reads `scenes.yaml`, uses the repo's config and auth fixture, and for each scene: navigates, performs the actions, waits, applies `mask`, and saves `docs/releases/<version>/img/<id>.png` (full page off by default; `fullPage: true` per scene when needed). Rules:
+Write (or update) one small capture spec in the repo's Playwright language at `docs/tools/docs-capture.spec.(ts|js)` with its **own config** `docs/tools/playwright.capture.config.(ts|js)` (`testDir: '.'` — `testDir` resolves relative to the config file, so `'docs/tools'` there would point at `docs/tools/docs/tools` — importing the repo's config for `baseURL`, `storageState` and projects), run with `--config`. The Playwright runner only discovers files under the active config's `testDir`, so this keeps the capture out of the repo's default `playwright test` run — a spec placed inside the e2e `testDir` would be executed by every CI run of the suite. (Alternative, only when the repo insists on one config: put the spec under its `testDir` with `test.skip(!process.env.DOCS_CAPTURE, 'docs capture only')` at the top.) The spec reads `scenes.yaml`, uses the repo's config and auth fixture, and for each scene: navigates, performs the actions, waits, applies `mask`, and saves `docs/releases/<version>/img/<id>.png` (full page off by default; `fullPage: true` per scene when needed). Rules:
 - Host allowlist in the spec, exactly the list from the top of this skill (`localhost`, `127.0.0.1`, the `baseURL` host, `--allow-host`); refuse anything else before the first navigation.
 - Demo tenant only; the spec asserts the tenant name/badge on screen before the first capture.
 - Deterministic rendering: fixed viewport, `deviceScaleFactor: 2`, animations disabled (`reducedMotion: 'reduce'`), a fixed clock if the UI shows relative times (`page.clock`; the repo's Playwright version must support it — check its changelog, else freeze time in the app's test hook), fonts loaded (`document.fonts.ready`).
 - One scene at a time; retries once on timeout; a failed scene is listed, never silently skipped.
-- Run it: `pnpm exec playwright test --config docs/tools/playwright.capture.config.ts` (or the repo's runner), never the whole suite. "No tests found" means the spec is outside that config's `testDir` or does not match `testMatch`; fix that, do not widen the repo's config.
+- Run it: `pnpm exec playwright test --config docs/tools/playwright.capture.config.ts` (or the repo's runner), never the whole suite. "No tests found" means the spec is outside that config's `testDir` (resolved relative to the config file, not the repo root) or does not match `testMatch`; fix that, do not widen the repo's config.
 
 Then **look at every image** (open each PNG) before using it: right screen, right state, no real-looking personal data, no debug overlays. A screenshot nobody looked at is not evidence.
 

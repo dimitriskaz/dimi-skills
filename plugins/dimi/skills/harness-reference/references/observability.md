@@ -236,7 +236,7 @@ Public benchmarks tell you which models are capable; only your own eval set tell
 
 **Making evals part of delivery**
 
-1. Build the first 50 to 200 cases from real client data during discovery, with the client's experts writing the expected outcomes.
+1. Start the eval set during discovery and grow it: 3 to 5 cases on day one of the scaffold, 10 to 20 for the first CI gate, 50 to 200 by pilot, with the client's experts writing the expected outcomes. Eval data is real-shaped by default: the structure, edge cases and expected outcomes of real work, with synthetic content. Real client cases are used only anonymised, with the client's consent, and stored under the client's data policy, never in this plugin's repository.
 2. Run each case several times, because agents are non-deterministic. Report the pass rate and pass^k with confidence intervals, and gate merges on a tolerance agreed with the client rather than on any single-run drop.
 3. Re-run the full suite on every change to the model, prompts, tools or index, not only on code pull requests. Provider-side model updates never arrive as a pull request, so pin dated model versions in production.
 4. Sample 1% to 10% of production runs for online judging, more for new releases.

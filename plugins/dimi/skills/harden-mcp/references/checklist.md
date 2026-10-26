@@ -8,12 +8,14 @@ Every finding needs `path:line` evidence. Mark checks that depend on deployment 
 
 | Severity | Use when |
 | --- | --- |
-| Critical | Token passthrough, missing audience validation, unauthenticated remote server exposing private data or writes, command or SQL injection, SSRF into internal networks, secrets returned in tool results, cross-user data access |
-| High | No per-user authorisation inside tools, deprecated transport or auth flow on a remote server, unbounded outputs that can leak bulk data, local server running with broad host privileges, unpinned dependencies on a published server, a false `readOnlyHint` or `destructiveHint: false` that masks a write, hidden directives or client arguments spliced into prompt-template instructions (R2), elicitation that asks for passwords, tokens, keys or card numbers (S12) |
-| Medium | Protocol revision lag without a migration plan, missing `outputSchema` or `isError` handling, non-deterministic tool listing, thin descriptions, no rate limiting, no timeouts, no structured logging, non-protocol output on stdout from a stdio server (T5) |
+| Critical | Token passthrough, missing audience validation, unauthenticated remote server exposing private data or writes, an irreversible write that can run with no approval at any layer (D11), command or SQL injection, SSRF into internal networks, secrets returned in tool results, cross-user data access |
+| High | No per-user authorisation inside tools, a reversible write that can run with no approval at any layer and no client-profile permission (D11), deprecated transport or auth flow on a remote server, unbounded tool outputs that can return bulk or personal data, local server running with broad host privileges, unpinned dependencies on a published server, a false `readOnlyHint` or `destructiveHint: false` that masks a write, hidden directives or client arguments spliced into prompt-template instructions (R2), elicitation that asks for passwords, tokens, keys or card numbers (S12) |
+| Medium | Protocol revision lag without a migration plan, other unbounded tool outputs, missing `outputSchema` or `isError` handling, non-deterministic tool listing, thin descriptions, no rate limiting, no timeouts, no structured logging, non-protocol output on stdout from a stdio server (T5) |
 | Low | Naming, accurate-but-missing annotations, documentation |
 
 ## 1. Protocol revision and core
+
+The 2026-07-28 revision changed the core substantially: a stateless core (P2, P3), multi round-trip requests (P4) and several deprecations (P5). A server built against an earlier revision needs a migration plan covering each of them.
 
 | ID | Check | What good looks like |
 | --- | --- | --- |
@@ -51,16 +53,17 @@ Every finding needs `path:line` evidence. Mark checks that depend on deployment 
 
 | ID | Check | What good looks like |
 | --- | --- | --- |
-| D1 | Names | Short, unique and namespaced by service (for example `crm_contacts_search`), so they don't collide when hosts combine servers |
+| D1 | Names | Short, unique, built from a verb and a noun, and prefixed with the service namespace on every server (for example `crm_contacts_search`), with one word order across the server, so names don't collide when hosts combine servers |
 | D2 | Descriptions | Several sentences each: what it does, when to use it, when not to, what each argument means, with an example value (pattern 4) |
 | D3 | Input schemas | JSON Schema with types, enums, formats, ranges and required fields; no free-form `query` strings where structured fields would do (pattern 4) |
-| D4 | Output schemas | `outputSchema` declared and `structuredContent` returned, plus a text copy for older clients (pattern 4) |
-| D5 | Errors | Execution failures returned as results with `isError: true` and an actionable message; protocol problems as JSON-RPC errors (pattern 5) |
+| D4 | Output schemas | `outputSchema` declared; success results carry the payload in `structuredContent` and the same payload serialised as JSON in a `content` text block, as the spec recommends for clients that do not read `structuredContent` (patterns 4 and 5) |
+| D5 | Errors | Execution failures returned as results with `isError: true` and the error payload `{code, message, retryable, hint?}` (plus any field the hint names) as JSON in `content`, without `structuredContent`; protocol problems as JSON-RPC errors (pattern 5) |
 | D6 | Bounded outputs | Pagination, limits and field selection; no tool can dump a whole table or mailbox in one call (pattern 9) |
 | D7 | Deterministic listing | `tools/list` returns tools in a stable order (it helps clients' prompt caching) |
 | D8 | Few, workflow-level tools | Tools cover whole tasks rather than mirroring every API endpoint |
 | D9 | Annotations honest | `readOnlyHint`, `destructiveHint` and similar are accurate, and nothing relies on them for security, since clients must treat them as untrusted. A false hint on a writing tool is High (it is a poisoning vector); a missing hint is Low |
 | D10 | Stable definitions | Tool descriptions change only with a version bump and changelog, so clients that pin definitions are not surprised |
+| D11 | Writes approved | The spec puts the human in the loop on the host: tool calls go through the host's confirmation, and `destructiveHint` tells it which ones need it. Pass when every write is approved at some layer and the server documents which: a server-side proposal the user accepts, a confirmation through `input_required` (P4), or an honest `destructiveHint: true` with the host's approval step required in the server's documented setup. Irreversible writes always need one. A reversible write may run with no approval only when the client profile explicitly allows it and the rule of two still holds (no agent combines untrusted input, sensitive data and the ability to change state or send data out without approval), with a sample reviewed afterwards. Severity counts only writes that can run with no approval at any layer: reversible without that permission is High, irreversible is Critical |
 
 ## 5. Resources and prompts
 

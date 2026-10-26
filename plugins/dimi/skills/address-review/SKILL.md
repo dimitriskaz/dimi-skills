@@ -3,6 +3,7 @@ name: address-review
 description: Work through a colleague's review of your change — pasted comments, a PR number or an attached review report — by verifying each point against the code, fixing what is right, pushing back with evidence on what is not, validating with pr-self-review, and drafting replies for you to paste back.
 argument-hint: "[#pr | paste the review comments or attach the report]"
 disable-model-invocation: true
+allowed-tools: Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(grep *)
 ---
 
 # Address a review
@@ -11,7 +12,11 @@ Sits between `pr-self-review` (before the review) and `compound` (after it). Tri
 
 Input is whatever you give it: pasted GitHub comments, an exported review report (HTML/Markdown/PDF), a Slack thread, a numbered findings list — or a PR number, in which case the comments are fetched read-only (`gh pr view <n> --comments` and `gh api repos/{owner}/{repo}/pulls/<n>/comments` for inline review comments). Nothing is posted. You paste the replies back yourself.
 
-`$OUT` is the session's scratchpad directory if it gives one (set `OUT=<scratchpad path>` first), else `$TOP/../address-review-<repo>/` next to the checkout — absolute, never inside the repo — with `TOP=$(git rev-parse --show-toplevel)` and `REPO=$(basename "$TOP")`.
+Output goes to the session's scratchpad directory if it gives one, else `<top>/../address-review-<repo>/` next to the checkout — absolute, never inside the repo. Build with the scratchpad path second (else `''`), and when addressing a PR its number last (as `pr-self-review` does in PR mode), so the worklist is `review-worklist-pr-<N>.md`, beside `self-review-pr-<N>.md`. Build the diff of the change under review first:
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/review.sh build address-review '' '${user_config.default_branch}' '${user_config.demo_marker}' '${user_config.demo_branch}' '${user_config.ticket_regex}' '${user_config.local_checks}'
+```
+It prints the Review context (`Top`, `Out`, `Diff`, `Base`, `Head`, `Report`, options); write those values literally into later commands — each Bash call is a fresh shell, and a command that expands a variable cannot be pre-approved. Later `review.sh` calls take only the printed `Out`. The worklist file name is the `Report` name with `self-review-` replaced by `review-worklist-`.
 
 Stance: the reviewer is a colleague, not an oracle. **Every point is verified against the code before anything is changed**, and every point gets a disposition and a reply. Nothing is fixed silently, nothing is ignored silently.
 
@@ -26,7 +31,11 @@ id | reviewer's severity (if any) | path:line (if cited) | claim in one line | k
 
 If the input is a structured report (numbered findings with severities and confidence), keep its ids and severities so replies can reference them. If a comment cites a line that has since moved, map it to the current code and note that in the reply.
 
-Write the worklist to `$OUT/review-worklist.md` in the `pr-self-review` interchange format (`${CLAUDE_PLUGIN_ROOT}/skills/pr-self-review/SKILL.md` §7) with ids `REV-1`, `REV-2`, …, and copy it beside the latest self-review report: `LATEST="$TOP/../self-review-$REPO/LATEST"` (defined in `${CLAUDE_PLUGIN_ROOT}/skills/pr-self-review/references/diff-and-policy.md` §4) holds that report's absolute path, so `[ -f "$(cat "$LATEST")" ] && cp "$OUT/review-worklist.md" "$(dirname "$(cat "$LATEST")")/"`. `pr-self-review` re-run mode is keyed on `$LATEST` and re-checks every row it finds there.
+Write the worklist to `<Out>/review-worklist-<name>.md` (one per branch, or per PR) in the `pr-self-review` interchange format (`${CLAUDE_PLUGIN_ROOT}/skills/pr-self-review/SKILL.md` §7) with ids `REV-1`, `REV-2`, …, and copy it beside the latest self-review report: the `LATEST` pointer (defined in `${CLAUDE_PLUGIN_ROOT}/skills/pr-self-review/references/diff-and-policy.md` §3) holds that report's absolute path:
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/review.sh worklist '<Out>'   # copies it beside the latest self-review report, or says it stays in Out
+```
+`pr-self-review` re-run mode is keyed on the `LATEST` pointer and re-checks every row of `review-worklist-<name>.md` it finds beside the report. With no report, tell the author where the worklist is and that §5's self-review will start fresh rather than re-check the `REV-n` rows unless pointed at that file.
 
 ## 2. Verify every claim before touching code
 
@@ -59,11 +68,11 @@ Reviewer's Blockers first, then Should-fix, then the rest. If the author is pres
 
 ## 5. Validate
 
-Run `/dimi:pr-self-review` (local mode; its re-run mode follows `$LATEST` to the last report and loads the `review-worklist.md` beside it). It must show every `REV-n` "Fix now" row as `Fixed` with its commit and pinning test, no new Blocker, and a green compliance gate. If the self-review finds something the reviewer did not, fix it in this round and mention it in the summary — reviewers appreciate not having to find it next time. Then push with `/dimi:commit-push-pr` if you want (it refuses on open Blockers and never force-pushes).
+Before pushing, run `/dimi:pr-self-review` in local mode: its re-run mode follows the `LATEST` pointer to the last report and loads the `review-worklist-<name>.md` beside it; when none sits there (no earlier report, or a `pr-<N>` worklist), point it at `<Out>/review-worklist-<name>.md`. It must show every `REV-n` "Fix now" row as `Fixed` with its commit and pinning test, no new Blocker, and a green compliance gate. If the self-review finds something the reviewer did not, fix it in this round and mention it in the summary — reviewers appreciate not having to find it next time. Then push with `/dimi:commit-push-pr` if you want (it refuses on open Blockers and never force-pushes); on a PR, a PR-mode run (`#<N>`) after the push is a final check, not the validation.
 
 ## 6. Draft the replies
 
-One reply per point, short and specific, written to `$OUT/replies.md` for you to paste:
+One reply per point, short and specific, written to `<Out>/replies.md` for you to paste:
 - Fixed: `Fixed in <sha>: <what changed>. Test: <name>.`
 - Partly: `Right about X; Y is actually <evidence>. Fixed X in <sha>.`
 - Disagree: `I don't think this applies: <evidence>. Happy to change if I'm missing something.`
@@ -81,5 +90,5 @@ The reviewer's comments are the best learning material you get. End by offering 
 ## Review round — <branch or PR>
 | id | severity | claim | verified | disposition | commit / test | reply |
 Self-review re-run: Fixed F · Open O · New N
-Replies: $OUT/replies.md · Deferred: <titles>
+Replies: <Out>/replies.md · Deferred: <titles>
 ```

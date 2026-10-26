@@ -12,7 +12,7 @@ Triggers: `/dimi:debug`, "this is failing", "CI is red", "it worked yesterday", 
 
 ## 0. Capture before touching anything
 
-Create `$OUT/debug-<slug>.md` and write (`$OUT` is the session's scratchpad directory if it gives one — set `OUT=<scratchpad path>` on the line before the block — else `../debug-<repo>/` next to the checkout, never inside the repo; paths are top-level-relative, so this works from any subdirectory):
+Create `$OUT/debug-<slug>.md` and write (`$OUT` is the session's scratchpad directory if it gives one — set `OUT=<scratchpad path>` on the line before the block — else `../debug-<repo>/` next to the checkout, never inside the repo; paths are top-level-relative, so this works from any subdirectory; each Bash call is a fresh shell, so every block below that uses `$TOP` or `$OUT` starts with these lines):
 ```bash
 TOP=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "not a git repository" >&2; exit 1; }
 REPO=$(basename "$TOP")
@@ -37,7 +37,24 @@ If it does not reproduce: say so, list what was tried, and stop — flakiness an
 
 ## 2. Baseline — first run the tests
 
-Before any change, run the touched packages' tests and typecheck and record the result. A failure you did not cause is a follow-up, not a detour. If it is a regression, `git bisect` with the repro command is faster than reading. Bisect refuses a dirty tree, so first commit the repro test (`test(<KEY>): …`, the author commits) or copy the repro command outside the tree (bisect checks out old commits, so a test that only exists in the working tree would vanish or be stashed away), then `git stash push -u -- <WIP files>` with explicit paths, `git bisect start HEAD <good>; git bisect run <command>`, `git bisect reset` and `git stash pop` after.
+Before any change, run the touched packages' tests and typecheck and record the result. A failure you did not cause is a follow-up, not a detour. If it is a regression, `git bisect` with the repro is faster than reading. The repro must live **outside the tree**: older commits do not have a test written now (committed at HEAD or not), so running it in place makes them look good and bisect blames the wrong commit. Save the test to `$OUT` and let a script copy it in at each step, skipping (exit 125) commits where it cannot run; run this in one Bash call with the §0 lines first:
+```bash
+cd "$(git rev-parse --show-toplevel)" || exit 1        # <test path> below is top-level-relative, here and in the script
+cp <test path> "$OUT/repro-<slug>.<ext>" || exit 1
+cat > "$OUT/bisect-<slug>.sh" <<'EOF'
+#!/bin/sh
+# usage: bisect-<slug>.sh <saved test> <its path in the repo>; exit 0 good, 1 bad, 125 skip this commit
+cd "$(git rev-parse --show-toplevel)" || exit 125
+mkdir -p "$(dirname "$2")" && cp "$1" "$2" || exit 125
+<build step, if the test needs one> >/dev/null 2>&1 || { git checkout -q -- "$2" 2>/dev/null || rm -f "$2"; exit 125; }
+<narrowest command that runs "$2">; rc=$?
+git checkout -q -- "$2" 2>/dev/null || rm -f "$2"          # leave the commit as it was checked out
+[ "$rc" -eq 0 ] && exit 0; [ "$rc" -eq 1 ] && exit 1; exit 125   # other codes (no tests collected, import error) = cannot test
+EOF
+git bisect start HEAD <good> && git bisect run sh "$OUT/bisect-<slug>.sh" "$OUT/repro-<slug>.<ext>" <test path>
+git bisect reset; cp "$OUT/repro-<slug>.<ext>" <test path>
+```
+Bisect does not need a clean tree: it refuses a step only when the checkout would overwrite local changes (an edited file the range also changes, an untracked file at a path an old commit tracks). If it refuses, `git stash push -u -- <those paths>` with explicit paths, and `git stash pop` after `git bisect reset`. The script restores the committed version at each step; the last line puts your copy back, tracked or untracked.
 
 ## 3. Isolate
 
@@ -45,7 +62,7 @@ Find the boundary where correct becomes wrong, by halving:
 - **Layer by layer**: data at rest → read path → logic → serialisation → UI. Assert at each boundary (log the value with its type and length, not `console.log(obj)`).
 - **Input by input**: minimise the failing input until removing anything more makes it pass.
 - **Time**: what the code *thinks* the time, timezone and clock are; what the browser thinks vs the server.
-- Add logging at *boundaries*, with a unique prefix (`DBG-<slug>`) so every probe is found by one grep; this skill removes its own probes in §6 and the Stop gate blocks any `DBG-` line left behind. Never scatter prints.
+- Add logging at *boundaries*, one line per probe, with a unique prefix (`DBG-<slug>`) so every probe is found by one grep; this skill removes its own probes in §6 and the Stop gate blocks any `DBG-` line left behind. Never scatter prints.
 - Read the real code at the boundary, including the other end of any pair (Lens 1 in `${CLAUDE_PLUGIN_ROOT}/skills/pr-correctness-scalability-review/SKILL.md`): lookup vs store, two walkers, the alternate write path.
 
 ## 4. Hypotheses — one at a time, in the log
@@ -55,7 +72,7 @@ Table in the log file:
 | # | Hypothesis | Prediction (what we should observe if true) | Test | Result |
 |---|---|---|---|---|
 
-Rules: one hypothesis at a time; the prediction is written *before* the test; a result that does not match the prediction kills the hypothesis — do not patch the hypothesis to fit. Revert any probe code before the next hypothesis (`git stash push -u -- <probe files>` with explicit paths, then `git stash drop` once the probe is no longer needed; never a bare `git stash` or `git checkout <file>`, which also take the regression test and the author's uncommitted work) so attempts do not stack.
+Rules: one hypothesis at a time; the prediction is written *before* the test; a result that does not match the prediction kills the hypothesis — do not patch the hypothesis to fit. Remove the probe before the next hypothesis so attempts do not stack: probes are single lines carrying `DBG-<slug>`, so `git -C "$TOP" grep -n --untracked 'DBG-<slug>'` lists them; delete exactly those lines, re-run the grep until it prints nothing, and delete a file only if the probe created it. Never stash, drop or `git checkout` a file to remove a probe: the same file holds the regression test or the author's uncommitted work, and `git stash drop` destroys it.
 
 **Stop rule**: after two killed hypotheses, stop testing and step back — re-read the capture, the plan for this area and `.claude/rules/`; ask whether the model of the system is wrong (it usually is at this point). If the author is present, say what has been ruled out and ask one question. Never run three unexamined attempts in a row.
 

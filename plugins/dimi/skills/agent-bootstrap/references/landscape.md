@@ -10,7 +10,7 @@ The client's or company's cloud, language and model contract usually settle the 
 
 Verify each one's current state as described in section 0 of SKILL.md (freshness rule); the characterisations below are stable intent, not API facts.
 
-- **Claude Agent SDK** (TypeScript/Python): the agentic loop, tools, MCP, subagents, hooks and permissions as a library; strongest when the product is Claude-first and you want a production harness rather than a thin loop. **Anthropic Managed Agents**: the same, hosted with a managed sandbox, when you do not want to run the loop or the sandbox yourself.
+- **Claude Agent SDK** (TypeScript/Python): the agentic loop, tools, MCP, subagents, hooks and permissions as a library; strongest when the product is Claude-first and you want a production harness rather than a thin loop. **Claude Managed Agents**: the same, hosted with a managed sandbox, when you do not want to run the loop or the sandbox yourself.
 - **OpenAI Agents SDK** (Python/TS): handoffs, guardrails and tracing; OpenAI-first.
 - **LangGraph**: explicit graph/state machine with checkpoints, durable execution and human-in-the-loop interrupts; choose when control flow must be explicit and resumable.
 - **Pydantic AI** (Python): typed outputs and dependency injection, provider-agnostic; choose when strong typing and testability lead.

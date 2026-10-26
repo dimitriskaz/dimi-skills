@@ -30,10 +30,10 @@
 | --- | --- | --- |
 | Read-only internal | TBD | Runs automatically |
 | Outbound (anything reaching an external address) | TBD | TBD |
-| Reversible writes | TBD | TBD |
+| Reversible writes | TBD | Approval by TBD (role), or without approval with a sampled review by TBD (role) at TBD (rate) |
 | Irreversible or financial | TBD | Always needs approval by TBD (role or team) |
 
-**Severity overrides for reviews** (read by `review-agent` and `harden-mcp`, whose rubric or checklist ids go in the first column; severity is Critical, High, Medium or Low. `pr-self-review` maps them to its own scale: Critical or High → Blocker, Medium → Should fix, Low → Minor):
+**Severity overrides for reviews** (read by `review-agent` and `harden-mcp`, whose rubric or checklist ids go in the first column; severity is Critical, High, Medium or Low. `pr-self-review` maps them to its own scale: Critical → Blocker; High → Should fix, promoted to Blocker when it meets a Blocker criterion; Medium → Minor, promoted to Should fix when it sits on a realistic path; Low → Minor):
 
 | Check id | Severity | Reason |
 | --- | --- | --- |
