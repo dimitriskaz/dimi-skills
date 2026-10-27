@@ -5,17 +5,17 @@
 
 set -u
 HERE=$(cd "$(dirname "$0")" 2>/dev/null && pwd -P) || exit 0   # before any cd: $0 may be relative
-if ! command -v jq >/dev/null 2>&1; then
-  echo "dimi: jq is not on PATH, so the plugin's hooks (Bash guard, Stop gate, session notes) are inactive until it is installed."
+. "$HERE/lib.sh" 2>/dev/null || exit 0                    # json_get, project_key, LOCAL_STATE_RE
+if ! json_tool; then
+  echo "dimi: none of jq, python3 or node is on PATH, so the plugin's hooks (format on edit, Bash guard, Stop gate, session notes) are inactive until one is installed."
   exit 0
 fi
 INPUT=$(cat)
-SOURCE=$(printf '%s' "$INPUT" | jq -r '.source // "startup"' 2>/dev/null)
+SOURCE=$(printf '%s' "$INPUT" | json_get source); SOURCE=${SOURCE:-startup}
 
 cd "${CLAUDE_PROJECT_DIR:-.}" 2>/dev/null || exit 0
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
 cd "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || exit 0   # top-level-relative paths, same key as the other hooks
-. "$HERE/lib.sh" 2>/dev/null || exit 0                    # project_key, LOCAL_STATE_RE
 
 # ------------------------------------------------------------- configuration ----
 DEFAULT_BRANCH="${CLAUDE_PLUGIN_OPTION_DEFAULT_BRANCH:-${STOP_DEFAULT_BRANCH:-}}"

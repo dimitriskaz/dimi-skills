@@ -20,13 +20,14 @@
 # Quoted strings that contain whitespace are ignored for command detection, so a commit message or an echo
 # that mentions `git push origin main` is not treated as a push.
 # Portable to bash 3.2 (macOS): no `read -a`, no empty-array expansion without a guard.
-# Requires jq. Without it the guard cannot read the command and exits 0 (no guard).
+# Reads its input with jq, python3 or node (scripts/lib.sh json_get); with none of them it exits 0 (no guard).
 
 set -u
 set -f   # no globbing: `git add *` must be seen as the literal `*`
-command -v jq >/dev/null 2>&1 || exit 0
+. "$(cd "$(dirname "$0")" 2>/dev/null && pwd -P)/lib.sh" 2>/dev/null || exit 0   # json_get
+json_tool || exit 0
 INPUT=$(cat)
-CMD=$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
+CMD=$(printf '%s' "$INPUT" | json_get tool_input command)
 [ -z "$CMD" ] && exit 0
 cd "${CLAUDE_PROJECT_DIR:-.}" 2>/dev/null || true
 

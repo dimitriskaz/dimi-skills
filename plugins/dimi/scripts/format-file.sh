@@ -8,15 +8,14 @@
 
 set -u
 HERE=$(cd "$(dirname "$0")" 2>/dev/null && pwd -P) || exit 0   # before any cd: $0 may be relative
-command -v jq >/dev/null 2>&1 || exit 0
+. "$HERE/lib.sh" 2>/dev/null || exit 0   # json_get (jq > python3 > node), with_timeout (GNU timeout > gtimeout > perl alarm > none)
+json_tool || exit 0
 INPUT=$(cat)
-FILE=$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
+FILE=$(printf '%s' "$INPUT" | json_get tool_input file_path)
 [ -z "$FILE" ] && exit 0
 [ -f "$FILE" ] || exit 0
 
 cd "${CLAUDE_PROJECT_DIR:-.}" 2>/dev/null || exit 0
-
-. "$HERE/lib.sh" 2>/dev/null || exit 0   # with_timeout: GNU timeout > gtimeout > perl alarm > none
 
 # Resolve a tool: repo-local bin first, then PATH.
 bin() {
@@ -38,7 +37,7 @@ prettier_adopted() {
     for c in .prettierrc .prettierrc.json .prettierrc.yaml .prettierrc.yml .prettierrc.json5 .prettierrc.js .prettierrc.cjs .prettierrc.mjs .prettierrc.toml prettier.config.js prettier.config.cjs prettier.config.mjs .prettierrc.ts prettier.config.ts; do
       [ -f "$d/$c" ] && return 0
     done
-    [ -f "$d/package.json" ] && jq -e '.prettier != null or (.devDependencies.prettier // .dependencies.prettier) != null' "$d/package.json" >/dev/null 2>&1 && return 0
+    [ -f "$d/package.json" ] && [ -n "$(json_get prettier < "$d/package.json")$(json_get devDependencies prettier < "$d/package.json")$(json_get dependencies prettier < "$d/package.json")" ] && return 0
     [ "$d" = "$proj" ] || [ "$d" = / ] && break
     d=$(dirname "$d")
   done

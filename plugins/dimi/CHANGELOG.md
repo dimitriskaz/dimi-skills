@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.0 - 2026-10-27
+
+- Hooks no longer need `jq`. They read their input and `package.json` through `json_get` in `scripts/lib.sh`, which uses `jq` (1.6+), then `python3`, then `node`. Before this, a machine without `jq` silently lost the format-on-edit hook, the Bash guard, the Stop gate and the session-end note. They now run wherever Claude Code does: the native installer needs no Node, but almost every development machine has `python3` or `node`. The banner warns only when none of the three is present. Behaviour change for those machines: after upgrading, `eslint --fix` runs on each edited TS/JS file in repos that have eslint. Set `eslint_fix_on_edit` to `0` to keep the old behaviour.
+
 ## 1.5.0 - 2026-10-26
 
 Fixes from a second run of every hook, skill and agent against scratch repos with the plugin loaded headlessly.

@@ -32,6 +32,54 @@ resolve_marker() { opt "${1-}" DEMO-ONLY; }
 # valid_ere <regex>: true when grep -E accepts it (an invalid user regex must not read as "nothing found").
 valid_ere() { printf 'x\n' | grep -E -- "$1" >/dev/null 2>&1; [ $? -le 1 ]; }
 
+# ---- JSON (jq > python3 > node) ------------------------------------------------------------------------
+# The hooks read their input and package.json through these, so they work on machines without jq.
+# json_tool: the first working reader (jq, python3 or node), remembered for the script's lifetime; fails when none.
+json_tool() {
+  if [ -z "${_JSON_TOOL+x}" ]; then
+    _JSON_TOOL=
+    if command -v jq >/dev/null 2>&1 && jq -n '$ARGS' --args >/dev/null 2>&1; then _JSON_TOOL=jq   # jq 1.6+ ($ARGS)
+    # A python3 that cannot run (the Windows Store stub) must not count.
+    elif command -v python3 >/dev/null 2>&1 && python3 -c 'import json' >/dev/null 2>&1; then _JSON_TOOL=python3
+    elif command -v node >/dev/null 2>&1; then _JSON_TOOL=node; fi
+  fi
+  [ -n "$_JSON_TOOL" ]
+}
+
+# json_get <key>…: the value at that key path in the JSON on stdin: strings raw, other values as JSON, nothing when
+# the path is missing or null or the input is not JSON. Keys are separate arguments, so a key may contain dots.
+json_get() {
+  json_tool || return 0
+  case "$_JSON_TOOL" in
+    jq) jq -r 'reduce $ARGS.positional[] as $k (.; if type == "array" then (try .[$k | tonumber] catch null) elif type == "object" then .[$k] else null end)
+      | if . == null then empty elif type == "string" then . else tojson end' --args "$@" 2>/dev/null ;;
+    python3) python3 -c '
+import json, sys
+try:
+    v = json.load(sys.stdin)
+    for k in sys.argv[1:]:
+        v = v[int(k)] if isinstance(v, list) else v[k]
+except Exception:
+    v = None
+if v is not None:
+    sys.stdout.write(v if isinstance(v, str) else json.dumps(v, separators=(",", ":")))
+    sys.stdout.write("\n")' "$@" 2>/dev/null ;;
+    node) node -e '
+let v; try { v = JSON.parse(require("fs").readFileSync(0, "utf8")); for (const k of process.argv.slice(1)) v = v[k] } catch { v = undefined }
+if (v !== undefined && v !== null) process.stdout.write((typeof v === "string" ? v : JSON.stringify(v)) + "\n")' "$@" 2>/dev/null ;;
+  esac
+}
+
+# json_message <text>: {"systemMessage": text} on stdout (a hook's warning to the user); nothing without a reader.
+json_message() {
+  json_tool || return 0
+  case "$_JSON_TOOL" in
+    jq) jq -cn --arg m "$1" '{systemMessage: $m}' ;;
+    python3) python3 -c 'import json, sys; print(json.dumps({"systemMessage": sys.argv[1]}))' "$1" ;;
+    node) node -e 'console.log(JSON.stringify({systemMessage: process.argv[1]}))' "$1" ;;
+  esac
+}
+
 # ---- repository ----------------------------------------------------------------------------------------
 # top: the repository top level, or nothing outside a git repository.
 top() { git rev-parse --show-toplevel 2>/dev/null; }
