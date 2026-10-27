@@ -3,8 +3,8 @@
 # Fast and never blocking: this hook always exits 0. Heavier checks live in stop-check.sh.
 #
 # Toggle: plugin option eslint_fix_on_edit=0 (or env HOOK_ESLINT_FIX=0) skips eslint --fix on edits (type-aware eslint configs can be slow).
-# Prettier runs only when the repo has adopted it (a local node_modules/.bin/prettier or a prettier config),
-# so a globally installed prettier never reflows files in a repo that does not use it.
+# Prettier and ruff run only when the repo has adopted them (a local install or a config),
+# so a globally installed formatter never reflows files in a repo that does not use it.
 
 set -u
 HERE=$(cd "$(dirname "$0")" 2>/dev/null && pwd -P) || exit 0   # before any cd: $0 may be relative
@@ -44,6 +44,21 @@ prettier_adopted() {
   return 1
 }
 
+# Ruff is adopted when a ruff.toml / .ruff.toml or a pyproject.toml with [tool.ruff] sits in the file's folder or any
+# parent up to the project dir, so a globally installed ruff never reformats a repo that does not use it.
+ruff_adopted() {
+  local d proj; proj=$(pwd -P)
+  d=$(cd "$(dirname "$FILE")" 2>/dev/null && pwd -P) || d=$proj
+  case "$d/" in "$proj"/*) ;; *) d=$proj ;; esac
+  while :; do
+    { [ -f "$d/ruff.toml" ] || [ -f "$d/.ruff.toml" ]; } && return 0
+    [ -f "$d/pyproject.toml" ] && grep -q '^\[tool\.ruff' "$d/pyproject.toml" 2>/dev/null && return 0
+    [ "$d" = "$proj" ] || [ "$d" = / ] && break
+    d=$(dirname "$d")
+  done
+  return 1
+}
+
 case "$FILE" in
   *.ts|*.tsx|*.js|*.jsx|*.mjs|*.cjs|*.json|*.css|*.scss|*.md|*.mdx|*.yaml|*.yml|*.html)
     if prettier_adopted && P=$(bin prettier); then
@@ -64,7 +79,7 @@ case "$FILE" in
     esac
     ;;
   *.py)
-    if command -v ruff >/dev/null 2>&1; then
+    if ruff_adopted && command -v ruff >/dev/null 2>&1; then
       with_timeout 20 ruff format -q --force-exclude "$FILE" >/dev/null 2>&1 || true
       # --unfixable F401: an import added in one edit and used in the next must not be deleted in between.
       with_timeout 20 ruff check -q --fix --unfixable F401 --force-exclude "$FILE" >/dev/null 2>&1 || true

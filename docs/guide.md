@@ -143,7 +143,7 @@ All five read JSON with `jq`, falling back to `python3` and then `node` (with no
 
 ### `format-file.sh` — runs after every file edit
 **Moment:** `PostToolUse` on `Edit|Write`.
-**Does:** prettier on the touched file (TS/JS/JSON/CSS/MD/YAML), `eslint --fix` on TS/JS, `ruff format` + `ruff check --fix` on Python. Always exits 0 — it never blocks and swallows tool errors.
+**Does:** prettier on the touched file (TS/JS/JSON/CSS/MD/YAML) when the repo has a prettier config or local install, `eslint --fix` on TS/JS (option `eslint_fix_on_edit`), `ruff format` + `ruff check --fix` on Python when a `ruff.toml`, `.ruff.toml` or `pyproject.toml` with `[tool.ruff]` covers the file. Always exits 0 — it never blocks and swallows tool errors.
 **Why:** formatting and auto-fixable lint should never be what turns CI red.
 **Tune:** set the plugin option `eslint_fix_on_edit` to `0` if your eslint is slow (env `HOOK_ESLINT_FIX=0` outside a plugin install).
 

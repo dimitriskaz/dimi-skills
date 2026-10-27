@@ -4,6 +4,7 @@
 
 - New `help` skill (`/dimi:help [task]`): the full catalogue, including the manual-only skills. Skills marked `disable-model-invocation: true` are left out of the model's skill list, so Claude could not see 12 of the 23 skills and told users, for example, that dimi had no skill for working through a colleague's review (`address-review`). `help` is model-invocable and loads when a user asks how to use dimi or whether it has a skill for something; it tells Claude to name the command rather than improvise the workflow.
 - Session banner: the loop line says most of those commands are manual-only and points to `/dimi:help`.
+- Format-on-edit hook: `ruff format` and `ruff check --fix` run only when the repo has adopted ruff (a `ruff.toml`, `.ruff.toml` or `pyproject.toml` with `[tool.ruff]` in the edited file's folder or a parent up to the project), as prettier already did. Before this, a globally installed ruff reformatted whole Python files in repos that do not use it.
 - `address-review`: when `CLAUDE.md` or the author says not to commit without asking, fixes stay uncommitted with a drafted message per root cause, and replies say `Fixed (uncommitted)`.
 
 ## 1.6.0 - 2026-10-27
