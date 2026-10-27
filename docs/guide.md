@@ -134,7 +134,7 @@ All seeded from the review's recurring findings. Every `.md` in the directory is
 
 ## Hooks (`plugins/dimi/scripts/*.sh`, registered in `hooks/hooks.json`)
 
-All five need `jq` installed (without it they exit quietly and the session banner says so). Configure them once per repo in `/plugin` → dimi → **Configure options**; the scripts read those as `CLAUDE_PLUGIN_OPTION_*`, fall back to `STOP_*`/`GUARD_*` env vars, then to defaults.
+All five read JSON with `jq`, falling back to `python3` and then `node` (with none of them they exit quietly and the session banner says so). Configure them once per repo in `/plugin` → dimi → **Configure options**; the scripts read those as `CLAUDE_PLUGIN_OPTION_*`, fall back to `STOP_*`/`GUARD_*` env vars, then to defaults.
 
 ### `format-file.sh` — runs after every file edit
 **Moment:** `PostToolUse` on `Edit|Write`.
@@ -248,7 +248,7 @@ git checkout -q feat/PROJ-2
 echo '{"source":"clear"}' | bash "$CLAUDE_PLUGIN_ROOT/scripts/session-context.sh"                                           # prints the banner
 PATH=/usr/bin:/bin bash -c 'echo "{\"stop_hook_active\":false}" | bash "$CLAUDE_PLUGIN_ROOT/scripts/stop-check.sh"; echo "rc=$?"'  # pnpm/ruff absent: rc 0 plus a systemMessage, never 2
 ```
-Also run the scripts once with `jq` off PATH: every one must exit 0 (the guard and the gate are inactive without it, and the banner says so).
+Also run them with `jq` off PATH and only `python3`, then only `node`: the results must match the `jq` run. Then with none of the three: every script must exit 0 (the guard and the gate are inactive, and the banner says so).
 Run it twice: once with GNU tools on PATH and once with a PATH that lacks `timeout`, `sha1sum` and GNU `xargs` (stock macOS). The scripts carry fallbacks for all three; the test is what proves they still do. Keep stderr captures outside the repo, or they count as untracked changes.
 
 ## Beyond the plugin: habits and personal settings worth adopting

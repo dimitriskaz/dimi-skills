@@ -14,12 +14,14 @@
 # Never blocks on missing tooling: a package manager or linter that is not installed is reported once
 # as a systemMessage and the gate is skipped for that check.
 # Portable: works with GNU coreutils and stock macOS (no GNU timeout / sha1sum / xargs -d required).
-# Requires jq. Without it the stop_hook_active loop breaker cannot be read, so the gate exits 0.
+# Reads JSON with jq, python3 or node (scripts/lib.sh json_get). With none of them the stop_hook_active loop
+# breaker cannot be read, so the gate exits 0.
 
 set -u
-command -v jq >/dev/null 2>&1 || exit 0
-INPUT=$(cat)
 HERE=$(cd "$(dirname "$0")" 2>/dev/null && pwd -P) || exit 0   # before any cd: $0 may be relative
+. "$HERE/lib.sh" 2>/dev/null || exit 0
+json_tool || exit 0
+INPUT=$(cat)
 
 cd "${CLAUDE_PROJECT_DIR:-.}" 2>/dev/null || exit 0
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
@@ -32,8 +34,7 @@ cd "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || exit 0
 HOOK_LIMIT_S="${STOP_HOOK_LIMIT_S:-270}"; case "$HOOK_LIMIT_S" in ''|*[!0-9]*) HOOK_LIMIT_S=270;; esac
 DEADLINE=$(( $(date +%s) + HOOK_LIMIT_S ))
 
-# ---- portable helpers (hash_stdin, project_key, with_timeout, change_diff …: scripts/lib.sh) -----
-. "$HERE/lib.sh" 2>/dev/null || exit 0
+# ---- portable helpers (hash_stdin, project_key, with_timeout, change_diff, json_get …: scripts/lib.sh, sourced above) -----
 run_with_timeout() { with_timeout "$1" bash -c "$2" </dev/null; }   # <seconds> <command string>
 # within_deadline <seconds>: the budget, lowered to what is left before DEADLINE.
 within_deadline() { local want="$1" left=$(( DEADLINE - $(date +%s) )); [ "$left" -lt "$want" ] && want=$left; echo "$want"; }
@@ -46,10 +47,10 @@ OK_FILE="$STATE_DIR/$PROJ_KEY.ok"
 
 # Remember the first line of Claude's last message, so the SessionEnd note can say what the session was on.
 # Written before any early exit below; an empty message leaves the previous value in place.
-LAST_LINE=$(printf '%s' "$INPUT" | jq -r '.last_assistant_message // empty' 2>/dev/null | head -n 1 | head -c 200)
+LAST_LINE=$(printf '%s' "$INPUT" | json_get last_assistant_message | head -n 1 | head -c 200)
 [ -n "$LAST_LINE" ] && printf '%s' "$LAST_LINE" > "$STATE_DIR/$PROJ_KEY.last" 2>/dev/null
 
-if [ "$(printf '%s' "$INPUT" | jq -r '.stop_hook_active // false' 2>/dev/null)" = "true" ]; then
+if [ "$(printf '%s' "$INPUT" | json_get stop_hook_active)" = "true" ]; then
   exit 0
 fi
 
@@ -140,7 +141,7 @@ pkg_manager() { # <package dir relative to the repo root>
     if [ -f "$cur/yarn.lock" ]; then echo yarn; return; fi
     if [ -f "$cur/package-lock.json" ] || [ -f "$cur/npm-shrinkwrap.json" ]; then echo npm; return; fi
     if [ -f "$cur/bun.lockb" ] || [ -f "$cur/bun.lock" ]; then echo bun; return; fi
-    pm=$(jq -r '.packageManager // empty' "$cur/package.json" 2>/dev/null | sed 's/@.*//')
+    pm=$( [ -f "$cur/package.json" ] && json_get packageManager < "$cur/package.json" | sed 's/@.*//')
     if [ -n "$pm" ]; then echo "$pm"; return; fi
     if [ "$cur" = "." ] || [ "$cur" = "/" ]; then break; fi
     cur=$(dirname "$cur")
@@ -157,7 +158,7 @@ if [ -n "$TS_FILES" ] && [ -n "$TYPECHECK_SCRIPT" ]; then
     [ -f "$d/package.json" ] && echo "$d"
   done | sort -u)
   RUNNABLE=$(printf '%s\n' "$PKGS" | while IFS= read -r d; do
-    [ -n "$d" ] && jq -e --arg s "$TYPECHECK_SCRIPT" '.scripts[$s] != null' "$d/package.json" >/dev/null 2>&1 && echo "$d"
+    [ -n "$d" ] && [ -n "$(json_get scripts "$TYPECHECK_SCRIPT" < "$d/package.json")" ] && echo "$d"
   done)
   START=$(date +%s)
   if [ -n "$RUNNABLE" ]; then
@@ -249,6 +250,6 @@ fi
 printf '%s' "$SIG" > "$OK_FILE"
 # Skipped checks are reported once per tree signature as a warning, never as a block.
 if [ -n "$SKIPPED" ]; then
-  jq -cn --arg m "dimi stop-check skipped: $SKIPPED. Install a missing tool, or set its option to 'none' to silence that skip." '{systemMessage: $m}'
+  json_message "dimi stop-check skipped: $SKIPPED. Install a missing tool, or set its option to 'none' to silence that skip."
 fi
 exit 0
