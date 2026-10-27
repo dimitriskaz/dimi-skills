@@ -6,6 +6,8 @@ One plugin, two halves that compose: the **development loop** a good reviewer wo
 /plugin install dimi --marketplace dimitriskaz/dimi-skills      # Claude Code 2.1.275+; or: marketplace add, then /plugin install dimi@dimi-skills
 ```
 
+Not sure which skill fits? `/dimi:help [task]`. It is also how Claude finds the manual-only skills, which Claude Code leaves out of the model's skill list.
+
 ## Development loop
 
 | Skill | Invoke | When |

@@ -13,7 +13,7 @@ This repository is a Claude Code plugin marketplace. Follow these conventions wh
 - One folder per skill under `plugins/<plugin>/skills/<skill-name>/`, with a `SKILL.md`. Folder names are kebab-case.
 - Keep `SKILL.md` under 500 lines. Put long material in a `references/` folder and link to it from `SKILL.md` with relative links.
 - Write descriptions that lead with the main use case and include phrases a user would actually say. Description plus `when_to_use` is truncated at 1,536 characters in the skill listing.
-- Use `disable-model-invocation: true` for skills with side effects, `user-invocable: false` for background knowledge, and `context: fork` for self-contained review tasks.
+- Use `disable-model-invocation: true` for skills with side effects (Claude cannot see these, so list every skill in `plugins/dimi/skills/help/SKILL.md`), `user-invocable: false` for background knowledge, and `context: fork` for self-contained review tasks.
 - Keep `` !`command` `` injections safe to run anywhere: a failing command aborts the skill, so add a fallback (`|| echo "..."`).
 - Reference other skills' files with `${CLAUDE_PLUGIN_ROOT}/skills/<skill>/...`; reference files in the same skill with relative links or `${CLAUDE_SKILL_DIR}`.
 

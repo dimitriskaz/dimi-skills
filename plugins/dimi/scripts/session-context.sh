@@ -51,7 +51,7 @@ if [ -n "$TICKET_REGEX" ]; then
 else
   echo "Rules: CLAUDE.md is authoritative. Stage explicit paths, never 'git add -A'. Commit as type: description (no ticket key required here)."
 fi
-echo "Loop: /dimi:plan-from-ticket → (/dimi:grill-me) → build → /dimi:ui-states-review (UI) → /dimi:tidy → /dimi:pr-self-review → /dimi:commit-push-pr → /dimi:address-review → /dimi:compound · red? /dimi:debug · docs: /dimi:walkthrough, /dimi:release-notes · demo branch: /dimi:poc, /dimi:port · agents: /dimi:agent-evals. Rules in .claude/rules/ load per path."
+echo "Loop: /dimi:plan-from-ticket → (/dimi:grill-me) → build → /dimi:ui-states-review (UI) → /dimi:tidy → /dimi:pr-self-review → /dimi:commit-push-pr → /dimi:address-review → /dimi:compound · red? /dimi:debug · docs: /dimi:walkthrough, /dimi:release-notes · demo branch: /dimi:poc, /dimi:port · agents: /dimi:agent-evals. Most of these are manual-only: they are not in your skill list, so suggest the command (full list: /dimi:help). Rules in .claude/rules/ load per path."
 if [ -n "$DEMO_BRANCH" ] && [ "$BRANCH" = "$DEMO_BRANCH" ]; then
   echo "This is the demo branch ($DEMO_BRANCH): merge-only, pushed with /dimi:poc push, never a PR base. Production work happens on a feature branch from $DEFAULT_BRANCH."
 fi

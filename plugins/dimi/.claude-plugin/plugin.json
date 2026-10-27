@@ -1,6 +1,6 @@
 {
   "name": "dimi",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "Dimi's engineering toolkit for Claude Code. A reviewer-grade development loop (plan from a ticket, state-complete UI, pre-commit self-review, ship, address review, compound learnings into rules) with hooks and agents, plus forward-deployed engineering for LLM agents (harness reference, production-readiness review, MCP hardening, client profiles, fact refresh).",
   "author": {
     "name": "dimitriskaz",
