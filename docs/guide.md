@@ -24,7 +24,7 @@ Rule of thumb from the official docs: **if Claude ignores an instruction twice, 
 
 ```
 plugins/dimi/            (installed as a plugin; same for every repo)
-  skills/        23 skills       — development loop, agent building and agent engineering
+  skills/        24 skills       — development loop, agent building and agent engineering
   agents/        6 agents        — delegates for search, review, verification, specs, parallel work, debugging
   hooks/hooks.json               — registers the 5 hooks
   scripts/                       — 5 hook scripts (gates, context, session notes; configured via plugin options),
@@ -40,6 +40,11 @@ templates/project-claude/        (copied into each repo; about that repo)
 ## Skills (`plugins/dimi/skills/<name>/SKILL.md`)
 
 Invoke with `/dimi:<name>`. Each is one file.
+
+### `help` — the catalogue
+**Purpose:** answer "how do I use dimi" and "is there a skill for X" with the right command.
+**What it does:** lists every skill with its command and whether it is manual-only, and tells Claude to name the command instead of improvising the workflow.
+**Why it exists:** skills marked `disable-model-invocation: true` (the ones that commit, push or write rules) are left out of the model's skill list, so Claude could not see them and would say dimi had no skill for, say, addressing a colleague's review. `help` is model-invocable, so Claude finds it and, through it, the rest.
 
 ### `pr-self-review` — the full gate before you commit or push
 **Purpose:** reproduce the review your teammates would do, on your working tree, before they see it.
@@ -138,7 +143,7 @@ All five read JSON with `jq`, falling back to `python3` and then `node` (with no
 
 ### `format-file.sh` — runs after every file edit
 **Moment:** `PostToolUse` on `Edit|Write`.
-**Does:** prettier on the touched file (TS/JS/JSON/CSS/MD/YAML), `eslint --fix` on TS/JS, `ruff format` + `ruff check --fix` on Python. Always exits 0 — it never blocks and swallows tool errors.
+**Does:** prettier on the touched file (TS/JS/JSON/CSS/MD/YAML) when the repo has a prettier config or local install, `eslint --fix` on TS/JS (option `eslint_fix_on_edit`), `ruff format` + `ruff check --fix` on Python when a `ruff.toml`, `.ruff.toml` or `pyproject.toml` with `[tool.ruff]` covers the file. Always exits 0 — it never blocks and swallows tool errors.
 **Why:** formatting and auto-fixable lint should never be what turns CI red.
 **Tune:** set the plugin option `eslint_fix_on_edit` to `0` if your eslint is slow (env `HOOK_ESLINT_FIX=0` outside a plugin install).
 

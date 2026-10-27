@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.0 - 2026-10-27
+
+- New `help` skill (`/dimi:help [task]`): the full catalogue, including the manual-only skills. Skills marked `disable-model-invocation: true` are left out of the model's skill list, so Claude could not see 12 of the 23 skills and told users, for example, that dimi had no skill for working through a colleague's review (`address-review`). `help` is model-invocable and loads when a user asks how to use dimi or whether it has a skill for something; it tells Claude to name the command rather than improvise the workflow.
+- Session banner: the loop line says most of those commands are manual-only and points to `/dimi:help`.
+- Format-on-edit hook: `ruff format` and `ruff check --fix` run only when the repo has adopted ruff (a `ruff.toml`, `.ruff.toml` or `pyproject.toml` with `[tool.ruff]` in the edited file's folder or a parent up to the project), as prettier already did. Before this, a globally installed ruff reformatted whole Python files in repos that do not use it.
+- `address-review`: when `CLAUDE.md` or the author says not to commit without asking, fixes stay uncommitted with a drafted message per root cause, and replies say `Fixed (uncommitted)`.
+
 ## 1.6.0 - 2026-10-27
 
 - Hooks no longer need `jq`. They read their input and `package.json` through `json_get` in `scripts/lib.sh`, which uses `jq` (1.6+), then `python3`, then `node`. Before this, a machine without `jq` silently lost the format-on-edit hook, the Bash guard, the Stop gate and the session-end note. They now run wherever Claude Code does: the native installer needs no Node, but almost every development machine has `python3` or `node`. The banner warns only when none of the three is present. Behaviour change for those machines: after upgrading, `eslint --fix` runs on each edited TS/JS file in repos that have eslint. Set `eslint_fix_on_edit` to `0` to keep the old behaviour.

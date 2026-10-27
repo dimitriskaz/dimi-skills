@@ -60,7 +60,7 @@ Reviewer's Blockers first, then Should-fix, then the rest. If the author is pres
 
 ## 4. Fix
 
-- One commit per root cause: `type(KEY): <what>`, body line `Addresses review: <ids>`. Stage explicit paths.
+- One commit per root cause: `type(KEY): <what>`, body line `Addresses review: <ids>`. Stage explicit paths. If `CLAUDE.md` or the author says not to commit without asking, leave the fixes uncommitted, list the files per root cause with a drafted commit message for each, and write `Fixed (uncommitted)` where §6 expects a sha.
 - For every fix, add or extend **the test that would fail without it**; the reviewer's comment is that test's description.
 - Follow `.claude/rules/` and the canonical patterns in the repo. A review fix is not a licence for a quick hack; no escape hatches. Do not annotate fixes in code (`// per review`, `// reviewer asked`): provenance goes in the commit body; if any slipped in, ask the author to run `/dimi:tidy`, or follow `${CLAUDE_PLUGIN_ROOT}/skills/tidy/SKILL.md` §1–4 inline.
 - Append commits; do not rebase, squash or force-push mid-review unless the team's convention says to. Ask if unsure.
