@@ -50,6 +50,6 @@ Order: plan-from-ticket → (grill-me) → build → ui-states-review → tidy �
 
 ## Also in the plugin
 
-- **Hooks** run on their own: format on edit, a Bash guard against pushes to protected branches and `git add -A`, a Stop gate (typecheck, lint, debug leftovers), a session banner and a where-I-stopped note.
+- **Hooks** run on their own: format on edit, a Bash guard against pushes to protected branches, `git add -A`, staging secret or state files, and commands that would discard uncommitted work (`reset --hard`, `checkout --` of edited files, `clean -f`, `stash drop`, `rm` of edited or untracked files), a Stop gate (typecheck, lint, debug leftovers), a session banner and a where-I-stopped note.
 - **Agents** Claude can delegate to: `explore`, `reviewer`, `verifier`, `spec-writer`, `implementer`, `debugger`.
 - **Options**: `/plugin` → dimi → Configure options (ticket regex, default branch, checks).

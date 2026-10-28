@@ -16,6 +16,6 @@ Everything a plugin cannot carry, because it is about one repository:
 4. Merge `CLAUDE.md.snippet` into `CLAUDE.md`; run `/doctor`.
 5. Check the `paths:` globs in `.claude/rules/*.md` match the repo layout.
 6. Add `.claude/.cache/` (the hooks' fallback state directory) and `.claude/worktrees/` (where the `implementer` agent's worktrees live until you `git worktree remove` them) to the repo's `.gitignore`.
-7. New session → `/hooks` shows five plugin hooks, `/agents` six agents, `/dimi:` autocompletes twenty-two skills (`harness-reference` is background knowledge, not invocable).
+7. New session → `/hooks` shows five plugin hooks, `/agents` six agents, `/dimi:` autocompletes twenty-three skills (`harness-reference` is background knowledge, not invocable).
 
 The hooks read JSON with `jq`, `python3` or `node`, whichever is on PATH first; with none of them they exit quietly and the session banner says so. The Stop gate keeps its cache in the plugin data directory and falls back to `.claude/.cache/` when the scripts run outside the plugin. The Stop gate never blocks on a missing tool: a package manager or linter that is not installed is reported once as a warning and that check is skipped. The `Agent(fork)` deny rule in `settings.json` has not been tested against `context: fork` skills (`review-agent`, `harden-mcp`); if those fail to start, remove that rule.
