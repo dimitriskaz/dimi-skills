@@ -90,6 +90,12 @@
       "description": "1 (or true) runs eslint --fix on the edited TS/JS file; 0 (or false) skips it (type-aware eslint configs can take seconds per file).",
       "default": "1"
     },
+    "guard_working_tree": {
+      "type": "string",
+      "title": "Guard uncommitted work",
+      "description": "1 (or true) makes the Bash guard refuse commands that would discard uncommitted work: git reset --hard, checkout/restore of edited paths, git clean -f, stash drop/clear, branch -D of an unmerged branch, rm of edited or untracked files. Judged against the tree as it is, so a clean tree is never blocked. 0 (or false) turns only this group off; never-stage paths and protected branches stay guarded.",
+      "default": "1"
+    },
     "demo_branch": {
       "type": "string",
       "title": "Demo / POC branch",
