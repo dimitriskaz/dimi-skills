@@ -34,7 +34,7 @@ Install at **user** scope by default. Use **project** scope in team repositories
 
 - Third-party marketplaces do not auto-update by default. Turn it on in `/plugin` → Marketplaces, or update manually: `claude plugin marketplace update dimi-skills`, then `claude plugin update dimi@dimi-skills`.
 - The `version` in `plugins/dimi/.claude-plugin/plugin.json` controls updates: users stay on a version until it is bumped.
-- To pin to a release, add the marketplace with a ref: `/plugin marketplace add dimitriskaz/dimi-skills#v1.7.0`.
+- To pin to a release, add the marketplace with a ref: `/plugin marketplace add dimitriskaz/dimi-skills#v1.8.0`.
 
 ## Using it on a repository
 

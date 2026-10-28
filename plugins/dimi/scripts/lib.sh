@@ -210,16 +210,21 @@ redact() {
 cap() { awk -v n="$1" 'NR <= n { print } END { if (NR > n) print "… and " NR - n " more" }'; }
 
 # NOTE_RE: session narrative and working notes that do not belong in code comments (tidy, commit-push-pr).
-NOTE_RE='as discussed|per the (ticket|workbook|customer|call|review)|for now|temporary|hack|quick fix|claude|assistant|session|step [0-9]|plan\.md|handoff|added (as part of|for|in)|updated (on|to)|changed (to|from)|20[0-9]{2}-[0-9]{2}-[0-9]{2}|see (above|below)|this (function|method|class|file) (does|is|handles|returns)'
+# Narrative words are matched in their narrative shape only: "this session", "temporary fix", "quick hack",
+# "Claude added"; a plain "session", "temporary", "hack" or "assistant" is product vocabulary (a session cookie,
+# a temporary buffer, an in-app assistant) and is not flagged. A comment that cites a URL is a why-comment with
+# its upstream reference (note_lines skips it for the narrative check, never for a ticket key or customer term).
+NOTE_RE='as discussed|per the (ticket|workbook|customer|call|review)|for now|temporar(y|ily) (fix|hack|workaround|solution|measure|until|while)|(quick|temp|ugly|dirty|nasty) hack|hack(ed|y)? (in|together|for now)|quick fix|(claude|copilot|the assistant|the model) (added|changed|wrote|suggested|said|generated|made|did|removed)|claude code|(this|that|the|last|previous|current|earlier|next|pair) session|session (notes?|narrative|transcript)|step [0-9]|plan\.md|handoff|added (as part of|for|in)|updated (on|to)|changed (to|from)|20[0-9]{2}-[0-9]{2}-[0-9]{2}|see (above|below)|this (function|method|class|file) (does|is|handles|returns)'
 # Comment-shaped text: a marker at the start or after whitespace (not the // of a URL, nor #fff).
 COMMENT_RE='^[^:]*:[0-9]+:(.*[[:space:]])?(//|/\*|<!--|#([[:space:]]|$))|^[^:]*:[0-9]+:[[:space:]]*\*|"""'"|'''"
 
 # note_lines <ticket regex> [customer terms]: comment lines on stdin ("path:line:text") that carry a ticket key
 # (case-sensitive), a customer term or session narrative (case-insensitive). Candidates, not verdicts.
 note_lines() {
-  local tr="${1-}" terms="${2-}" re="$NOTE_RE" c
-  [ -n "$terms" ] && re="$terms|$re"
+  local tr="${1-}" terms="${2-}" c
   c=$(grep -E -- "$COMMENT_RE")
   [ -n "$c" ] || return 0
-  { [ -n "$tr" ] && printf '%s\n' "$c" | grep -E -- "$tr"; printf '%s\n' "$c" | grep -iE -- "($re)"; } | awk '!seen[$0]++'
+  { [ -n "$tr" ] && printf '%s\n' "$c" | grep -E -- "$tr"
+    [ -n "$terms" ] && printf '%s\n' "$c" | grep -iE -- "($terms)"
+    printf '%s\n' "$c" | grep -vE -- 'https?://' | grep -iE -- "($NOTE_RE)"; } | awk '!seen[$0]++'
 }

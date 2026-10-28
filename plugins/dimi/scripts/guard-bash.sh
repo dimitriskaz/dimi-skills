@@ -11,7 +11,10 @@
 #     moves to (`git checkout main && git push`)
 #   - --no-verify / -n on commit, --no-verify on push
 #   - sweeping staging: `git add -A|--all|-u|--update|.|./|:/|*|..`, `git stage …`, `git commit -a|--all`
-#   - commits whose -m message lacks the ticket key (set ticket_regex to `none` to disable)
+#   - commits whose message lacks the ticket key (set ticket_regex to `none` to disable): the -m/--message value,
+#     a -F/--file message (the file is read; `-F -` reads the heredoc or pipe in the same command); a -F file that
+#     cannot be read is blocked. `--amend`, `-c`/`-C <commit>` and a bare `git commit` (editor) reuse an existing
+#     message or are interactive, so they are not checked
 #   - `git -C <relative or hidden dir>` / `--git-dir` / `--work-tree` with any of the above subcommands (target cannot
 #     be verified); `git -C /absolute/dir` is checked as if run in that directory
 #
@@ -174,20 +177,28 @@ check_sweeping_path() {
 
 # ---- git commit ---------------------------------------------------------------------
 check_commit() { # args after `commit` (quotes blanked)
-  local t has_m=0
+  local t has_m=0 has_f=0 next_f=0 file=""
   for t in "$@"; do
+    if [ "$next_f" = 1 ]; then file="$t"; next_f=0; continue; fi
     case "$t" in
       --no-verify) block "--no-verify skips the repo's git hooks. Fix the failing hook instead." ;;
       --all) block "commit --all stages every tracked change. Stage explicit paths, then commit." ;;
       --message|--message=*) has_m=1 ;;
+      --file=*) has_f=1; file="${t#--file=}" ;;
+      --file) has_f=1; next_f=1 ;;
       --*) ;;
       -u*|-S*) ;;                                                 # -u<mode>, -S<keyid>: values glued to the flag
       -*) case "$t" in *n*) block "-n (--no-verify) skips the repo's git hooks. Fix the failing hook instead." ;; esac
           case "$t" in *a*) block "commit -a stages every tracked change. Stage explicit paths, then commit." ;; esac
-          case "$t" in *m*) has_m=1 ;; esac ;;
+          case "$t" in *m*) has_m=1 ;; esac
+          case "$t" in
+            -*F?*) has_f=1; file="${t#*F}" ;;                      # -Fmsg.txt: the path glued to the flag
+            -*F) has_f=1; next_f=1 ;;                               # -F msg.txt / -F -: the path comes next
+          esac ;;
     esac
   done
-  if [ "$has_m" = 1 ] && [ -n "$TICKET_REGEX" ]; then
+  [ -n "$TICKET_REGEX" ] || return 0
+  if [ "$has_m" = 1 ]; then
     # Read the -m/--message values from the ORIGINAL command (flattened so a heredoc message is one string).
     local flat msgs
     flat=$(printf '%s' "$CMD" | tr '\n' ' ')
@@ -195,6 +206,18 @@ check_commit() { # args after `commit` (quotes blanked)
     [ -z "$msgs" ] && msgs="$flat"
     printf '%s' "$msgs" | grep -qE -- "$TICKET_REGEX" \
       || block "commit message has no ticket key matching /$TICKET_REGEX/. Use: type(KEY): description (or set the ticket_regex option to 'none')."
+  elif [ "$has_f" = 1 ]; then
+    # -F -: the message is the heredoc or pipe in this command, so the whole original command is searched.
+    # -F <path>: the file is read as it is now (the message git will use); unreadable → the key cannot be verified.
+    if [ "$file" = - ] || [ -z "$file" ]; then
+      printf '%s' "$CMD" | grep -qE -- "$TICKET_REGEX" \
+        || block "commit message (-F -) has no ticket key matching /$TICKET_REGEX/. Use: type(KEY): description (or set the ticket_regex option to 'none')."
+    elif [ -r "$file" ]; then
+      grep -qE -- "$TICKET_REGEX" "$file" \
+        || block "commit message file $file has no ticket key matching /$TICKET_REGEX/. Use: type(KEY): description (or set the ticket_regex option to 'none')."
+    else
+      block "commit -F $file: the message file cannot be read here, so its ticket key cannot be checked. Write the file first, or use -m \"type(KEY): description\"."
+    fi
   fi
   return 0
 }

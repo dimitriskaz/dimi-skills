@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.0 - 2026-10-28
+
+- Bash guard: the ticket-key check now covers `git commit -F <file>` / `--file` (the file is read as it is now) and `-F -` (the heredoc or pipe in the same command). Before this, only `-m` messages were checked, so a message file without a key committed unchallenged. A `-F` file that cannot be read is blocked, since the key cannot be verified. `--amend`, `-c`/`-C <commit>` and a bare `git commit` reuse an existing message or open an editor, and stay unchecked.
+- Working-notes scan (`review.sh notes`, `commit-push-pr`, `tidy`): narrative words are matched in their narrative shape only. `session`, `temporary`, `hack` and `assistant` on their own flagged product vocabulary ("session cookie", "temporary buffer", "the assistant replies", "Claude models") in every comment that used it; now "this session", "temporary fix", "quick hack", "Claude added" and the like are flagged, and a comment that cites a URL (a workaround with its upstream issue, the kind `tidy` keeps) is skipped for the narrative check. Ticket keys and customer terms are still reported wherever they appear.
+- Template README: `/dimi:` autocompletes twenty-three skills since `help` was added.
+
 ## 1.7.0 - 2026-10-27
 
 - New `help` skill (`/dimi:help [task]`): the full catalogue, including the manual-only skills. Skills marked `disable-model-invocation: true` are left out of the model's skill list, so Claude could not see 12 of the 23 skills and told users, for example, that dimi had no skill for working through a colleague's review (`address-review`). `help` is model-invocable and loads when a user asks how to use dimi or whether it has a skill for something; it tells Claude to name the command rather than improvise the workflow.
