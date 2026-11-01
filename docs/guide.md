@@ -71,6 +71,11 @@ Invoke with `/dimi:<name>`. Each is one file.
 **What it does:** a state matrix per data source (loading, empty, **unread**, partial, truncated, stale, permission denied, large) and an action matrix (partial success, retryable vs permanent failure, stale-version 409), plus forms (pickers not free text), data truthfulness (labels mean what they count; thresholds shown are those of the run), design tokens, keyboard models, and the Playwright specs those states need.
 **Why it exists:** several review findings were "failed read shown as 'none exist'" or "Reject says nothing was linked after links were written". Deep accessibility and copy are left to the `design:*` skills you already have.
 
+### `agent-ui-review` — before committing a chat or agent screen
+**Purpose:** a screen with a model behind it has states `ui-states-review` does not know: an answer half written when the connection drops, a tool call forty seconds in, a proposal waiting for approval, a budget that ran out, a source that was never read.
+**What it does:** an inventory of the conversation surface (transport and its event types, steps shown and hidden, approval points, limits, sources, actions and what can be undone); a stream-state table (connecting, streaming, stalled, stopped by the user, disconnected mid-answer, error after partial output, regenerated, reload mid-run) and a tool-call table; the approval-gate checks that keep the backend rule "writes are human-accepted proposals" honest on screen (the exact action shown, accept bound to that call, reject with a reason, no accidental accept, expiry as a state); each limit (step cap, budget, context compaction, rate limit, model or tool fallback) as a named state rather than an error; provenance (failed retrieval is not "no results", citations resolve, no invented confidence); rendering rules (model output is content, never markup; links and images from untrusted output are not auto-rendered); the audit trail and undo; input hygiene; a keyboard and live-region pass; and the mocked-stream specs that pin all of it.
+**Why it exists:** the agent half of the plugin reviewed budgets, approvals and egress in the backend (`review-agent` A, B and D) and nothing reviewed the screen where those controls are kept or lost. `pr-self-review` calls it when a diff touches a stream consumer, tool-call renderer or approval dialog, and folds its findings in prefixed `AU-`.
+
 ### `tidy` — remove the scaffolding before anyone else sees it
 **Purpose:** while working, Claude leaves itself breadcrumbs — `// added for PROJ-123`, `# per the customer's workbook`, `// step 3 of the plan`, a docstring that restates the signature, commented-out code "in case". Useful during the ticket, wrong at handover.
 **What it does:** inventories every comment, docstring, log string, test name, identifier and scratch file the change added; classifies each as keep (explains *why*), rewrite (a why buried in narrative), delete (narrative, what-comment, commented-out code, debug, placeholder docstring), resolve (TODO → ticket or PR Deferred section), rename (ticket/customer in an identifier or test name) or untrack (plan/handoff files in the tree); applies the edits; then proves the diff is comment-only and the touched checks still pass.
@@ -213,7 +218,7 @@ Lines to merge into your `CLAUDE.md`: the commands, a **Speed** section (narrowe
 1. `/dimi:plan-from-ticket PROJ-1234` → two-page plan with a test list and commit steps.
 2. Implement. `format-file.sh` tidies every edit; `guard-bash.sh` stops the dangerous commands; `explore` keeps searches out of your context.
 3. Claude says "done" → `stop-check.sh` runs typecheck/lint/leftovers; if red, Claude keeps going.
-4. UI involved → `/dimi:ui-states-review`; missing specs → `spec-writer`.
+4. UI involved → `/dimi:ui-states-review`; a chat or agent screen → `/dimi:agent-ui-review` as well; missing specs → `spec-writer`.
 4b. `/dimi:tidy` → working notes out, why-comments kept, diff proven comment-only.
 5. "use the verifier subagent" → evidence table.
 6. `/dimi:pr-self-review` → report, commit messages, PR description. Fix Blockers.

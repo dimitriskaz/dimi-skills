@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.9.0 - 2026-11-01
+
+- New skill `agent-ui-review`: the UI counterpart to `review-agent`. `ui-states-review` knows what a screen does when a request loads, fails or is forbidden; a screen with a model behind it has states that review never saw. The skill inventories the conversation surface (transport and event types, visible and hidden steps, approval points, limits, sources, actions and what can be undone), then checks a stream-state table (connecting, streaming, stalled, stopped by the user, disconnected mid-answer, error after partial output, regenerated, reload mid-run), a tool-call table, the approval gate on screen (the exact action shown, accept bound to that call and never reused after a regenerate, reject with a reason, no accidental accept, expiry and no-permission as states), each limit as a named state rather than a model error (step cap, budget, context compaction, rate limit, model or tool fallback), provenance (a failed retrieval is not "no results", citations resolve, no invented confidence), rendering (model and tool output is content, never markup; links and images from untrusted output are not auto-rendered), the audit trail and undo, input hygiene, a keyboard and live-region pass, and the mocked-stream specs that pin the risky rows. Findings come back in the `pr-self-review` interchange format with `review-agent` check ids cited where a finding has a server-side twin.
+- `pr-self-review` stage 4 loads `agent-ui-review` when the diff touches a stream consumer, tool-call renderer or approval dialog, and folds its findings in prefixed `AU-` (no severity mapping needed).
+- Catalogue, READMEs, guide and the project `CLAUDE.md` snippet list the new skill next to `ui-states-review`.
+
 ## 1.8.0 - 2026-10-28
 
 - Bash guard: the ticket-key check now covers `git commit -F <file>` / `--file` (the file is read as it is now) and `-F -` (the heredoc or pipe in the same command). Before this, only `-m` messages were checked, so a message file without a key committed unchallenged. A `-F` file that cannot be read is blocked, since the key cannot be verified. `--amend`, `-c`/`-C <commit>` and a bare `git commit` reuse an existing message or open an editor, and stay unchecked.

@@ -20,6 +20,7 @@ If an argument was given, answer it: name the one or two skills that fit and the
 | grill-me | `/dimi:grill-me [plan]` | no | Pressure-test a plan, design or idea one question at a time |
 | plan-from-ticket | `/dimi:plan-from-ticket <ticket>` | no | Turn a ticket into a plan before coding: touchpoints, data model, failure modes, tests, commit breakdown |
 | ui-states-review | `/dimi:ui-states-review [paths]` | no | Check a UI change for every state (loading, empty, error, denied, partial), tokens, keyboard, specs needed |
+| agent-ui-review | `/dimi:agent-ui-review [paths]` | no | Check a chat, copilot or agent screen: streaming and disconnects, tool calls in flight, approval gates, budget limits, citations, audit trail and undo, safe rendering of model output |
 | tidy | `/dimi:tidy [paths]` | **yes** | Remove working notes, ticket references, commented-out code and debug leftovers before handover |
 | pr-self-review | `/dimi:pr-self-review [#pr]` | no | Full review of the working tree or a PR before committing; report plus commit and PR drafts |
 | pr-correctness-scalability-review | `/dimi:pr-correctness-scalability-review` | no | Stage 2 of the self-review on its own |
@@ -33,7 +34,7 @@ If an argument was given, answer it: name the one or two skills that fit and the
 | poc | `/dimi:poc init\|mark\|sync\|push\|ledger\|status` | **yes** | Keep a long-lived demo branch honest: mark shortcuts, ledger, merge main in, push |
 | port | `/dimi:port <feature>` | **yes** | Bring a feature from the demo branch to the default branch properly |
 
-Order: plan-from-ticket → (grill-me) → build → ui-states-review → tidy → pr-self-review → commit-push-pr → address-review → compound. `debug` whenever something is red.
+Order: plan-from-ticket → (grill-me) → build → ui-states-review (agent-ui-review too for chat or agent screens) → tidy → pr-self-review → commit-push-pr → address-review → compound. `debug` whenever something is red.
 
 ## Building LLM agents
 
