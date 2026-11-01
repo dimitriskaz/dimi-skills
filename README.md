@@ -64,7 +64,7 @@ templates/project-claude/            per-repo starter: settings (permissions, en
 plugins/dimi/
   .claude-plugin/plugin.json         manifest with userConfig options; bump version per release
   CHANGELOG.md · README.md
-  skills/                            24 skills (19 development loop and agent building, 5 agent engineering)
+  skills/                            25 skills (20 development loop and agent building, 5 agent engineering)
   agents/                            explore, reviewer, verifier, spec-writer, implementer, debugger
   hooks/hooks.json                   5 hook registrations → scripts/
   scripts/                           5 hook scripts (format-file, stop-check, guard-bash, session-context, session-end-note),

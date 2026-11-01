@@ -24,7 +24,7 @@ Rule of thumb from the official docs: **if Claude ignores an instruction twice, 
 
 ```
 plugins/dimi/            (installed as a plugin; same for every repo)
-  skills/        24 skills       — development loop, agent building and agent engineering
+  skills/        25 skills       — development loop, agent building and agent engineering
   agents/        6 agents        — delegates for search, review, verification, specs, parallel work, debugging
   hooks/hooks.json               — registers the 5 hooks
   scripts/                       — 5 hook scripts (gates, context, session notes; configured via plugin options),
