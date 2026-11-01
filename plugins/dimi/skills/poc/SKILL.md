@@ -39,7 +39,7 @@ The Bash tool keeps no shell variables between calls: each bash block below is s
 - The demo branch worktree: `git worktree add ../<repo>-demo <demo-branch>`, then start `claude` in that directory, so production and demo work never share a checkout.
 
 ## `init`
-Ask for the demo branch if `<demo>` is unset and for the umbrella ticket key; then the demo branch check (HEAD must be that branch). Create the ledger with the header (demo branch, default branch, marker, created date, umbrella ticket) and an empty table; add a `.claude/rules/` line on the demo branch only: "Shortcuts carry `<MARKER>(<feature>): <why>`; register each feature in `docs/poc-ledger.md`". Commit as `chore(<KEY>): init POC ledger`. Offer `/dimi:compound` (do not run it) to add the production-side rule ("`<MARKER>(` never appears in a production PR") to the default branch's rules if it is not there.
+Ask for the demo branch if `<demo>` is unset and for the umbrella ticket key; then the demo branch check (HEAD must be that branch). Create the ledger with the header (demo branch, default branch, marker, created date, umbrella ticket) and an empty table; add a `.claude/rules/` line on the demo branch only: "Shortcuts carry `<MARKER>(<feature>): <why>`; register each feature in `docs/poc-ledger.md`". Show the files and wait for a yes, then commit as `chore(<KEY>): init POC ledger`. Offer `/dimi:compound` (do not run it) to add the production-side rule ("`<MARKER>(` never appears in a production PR") to the default branch's rules if it is not there.
 
 ## `mark <paths> [--why ...]`
 After the demo branch check, for the given files or hunks: find each shortcut (hard-coded ids, tenants or URLs; bypassed gates; stubbed services; fixture data in `src`; skipped validation; `TODO for demo`), add the marker comment with feature name and reason (ask for the feature name if it is not obvious from the ledger), and add or update the ledger row with the mark count. Show the diff; commit on the demo branch as `chore(<KEY>): mark demo-only code for <feature>` after a yes. Never mark on the default branch.
@@ -50,7 +50,7 @@ Bring the default branch into the demo branch without rewriting history (after t
 2. `git merge --no-ff origin/<default branch>` (merge, never rebase). On conflicts, resolve per the ledger: for features marked `ported` or `drifted`, **prefer the default branch's version** and delete the demo copy if the production one now covers it (the ledger says where); for `owed`, `in-review` and `demo-only`, prefer the demo version and keep the marks; for anything else, show the conflict and ask.
 3. Run the narrowest checks for the touched packages (typecheck, the touched tests), one at a time. The demo may be allowed to be rough, but it must boot.
 4. Update the ledger: `in-review` rows whose production PR has merged into `<default branch>` become `ported` (`gh pr view <n> --json state,mergedAt`); note the merge in the header ("last sync: <sha> on <date>"). Commit it: `git add docs/poc-ledger.md && git commit -m "chore(<KEY>): POC ledger after sync"`.
-5. Push with a plain `git push` after showing the summary (the merge and the ledger commit). Never `--force`.
+5. Show the summary (the merge and the ledger commit) and wait for a yes; then push with a plain `git push`. Never `--force`.
 
 ## `push [headline]`
 Commit the current demo work and push straight to the demo branch — no PR, no review gate — with the **light gate** only, in this order:
@@ -63,7 +63,7 @@ Commit the current demo work and push straight to the demo branch — no PR, no 
 4. Customer or personal data in code, fixtures or screenshots → stop; the demo tenant's invented data is fine, a real customer's is not.
 5. Unmarked shortcuts in the changed files → offer `mark` first (a shortcut without a marker is the thing `port` will miss).
 6. The ledger has a row for every feature touched (add or update it in the same commit).
-Then `git add <explicit paths>`, `git commit -m "<type>(<KEY>): <headline> [demo]"`, `git push`. The `[demo]` suffix keeps demo commits recognisable in `git log`.
+Then show the planned commit (paths and headline) and wait for a yes; only then `git add <explicit paths>`, `git commit -m "<type>(<KEY>): <headline> [demo]"`, `git push`. The `[demo]` suffix keeps demo commits recognisable in `git log`.
 
 ## `ledger <feature> <status> [--pr n]`
 Set one ledger row by hand — what `port` asks for once the production PR is open. After the demo branch check: `<status>` must be one of the status values above; find the row by feature name (none → ask whether to add it); set `status`, and with `--pr n` set `ported in` to `PR #n`. Show the diff of `docs/poc-ledger.md`; after a yes, `git add docs/poc-ledger.md && git commit -m "chore(<KEY>): ledger <feature> → <status>"`, then offer a plain `git push`.

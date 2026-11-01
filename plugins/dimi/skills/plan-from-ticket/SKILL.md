@@ -77,7 +77,7 @@ Answer each heading in writing. "N/A" is a valid answer only with a reason.
 
 ## 4. Test plan
 
-**First run the tests.** Before any change, run the suites for the packages you will touch and record the baseline. A failure you did not cause is not yours to chase mid-ticket; note it as a follow-up. Then work red/green where the change is a fix: write the failing test, watch it fail, commit it, implement.
+**First run the tests.** Before any change, run the suites for the packages you will touch and record the baseline. A failure you did not cause is not yours to chase mid-ticket; note it as a follow-up. Then work red/green where the change is a fix: write the failing test, watch it fail, the author commits it (`test(<KEY>): …`), implement.
 
 List the tests **that would fail without this change**, grouped:
 - Acceptance: one test per acceptance criterion.

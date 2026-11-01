@@ -75,7 +75,7 @@ A Mermaid `sequenceDiagram` for request/response flows, a `flowchart` for branch
 ## 4. Verify, then place
 
 - Re-read the doc against the code once: every path:line resolves, every "always/never" has its enforcement point, no customer data in examples.
-- Where it lives: `docs/walkthroughs/<slug>.md` if the repo has a docs convention, else `$OUT` and offer to add it. `$OUT` is the session's scratchpad directory if it gives one — set `OUT=<scratchpad path>` on the line before the block — else `../walkthrough-<repo>/` next to the checkout, never inside the repo; resolve it from the repo top so it works from any subdirectory:
+- Where it lives: always `$OUT` first (this skill can be loaded by Claude on its own and must not leave a new tracked file in the working tree); then, if the repo has a docs convention, offer to copy it there and let the author decide. `$OUT` is the session's scratchpad directory if it gives one — set `OUT=<scratchpad path>` on the line before the block — else `../walkthrough-<repo>/` next to the checkout, never inside the repo; resolve it from the repo top so it works from any subdirectory:
   ```bash
   TOP=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "not a git repository" >&2; exit 1; }
   REPO=$(basename "$TOP")

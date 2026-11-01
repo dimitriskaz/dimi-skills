@@ -7,7 +7,7 @@ The mechanical steps live in `scripts/review.sh`, called from each skill's `SKIL
 ## 1. Build the diff — local mode (working tree against the default branch)
 
 `review.sh build <skill> <out or ''> <default_branch> <demo_marker> <demo_branch> <ticket_regex> <local_checks> [PR number]`:
-- fetches the default branch and diffs the working tree (committed + staged + unstaged) against its merge-base, then appends every untracked file (`git diff --no-index`) except secret and state files (`.env*`, keys, Playwright auth state, `.claude/.cache/`), which are listed but never dumped;
+- fetches the default branch and diffs the working tree (committed + staged + unstaged) against its merge-base, then appends every untracked file (joined through a throwaway index, never the real one) except secret and state files (`.env*`, keys, Playwright auth state, `.claude/.cache/`), which are listed but never dumped;
 - writes `review.diff`, `status.txt`, `commits.txt`, `untracked.txt`, `review.stat`, `behind.txt` (commits behind the default branch) and `main-moved.txt` (files the default branch changed since the branch point) into the output directory;
 - prints the Review context (`Top`, `Out`, `Diff`, `Base`, `Head` — `working tree` in local mode — `Report`, options), the scope line and the report header line `Branch: … · HEAD: … · Tree: …` (`Tree` fingerprints the content of every changed path, so `commit-push-pr` can tell whether anything changed after the review);
 - stops with a message when `origin/<default branch>` is missing, instead of reviewing a partial diff.
