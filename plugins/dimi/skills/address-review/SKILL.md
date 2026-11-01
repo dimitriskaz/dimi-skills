@@ -56,7 +56,7 @@ Show the worklist with verification and a proposed disposition per row:
 - **Defer** — scope points, with a proposed follow-up ticket title.
 - **Ask** — unclear items.
 
-Reviewer's Blockers first, then Should-fix, then the rest. If the author is present, confirm the contested rows in one pass (AskUserQuestion). If not, proceed with confirmed "Fix now" rows only and leave the rest as drafts.
+Reviewer's Blockers first, then Should-fix, then the rest. If the author is present, confirm the contested rows in one pass (AskUserQuestion). If not, proceed with confirmed "Fix now" rows only, leave the rest as drafts, and leave every fix uncommitted (the `Fixed (uncommitted)` path in §4): committing needs a yes from the author.
 
 ## 4. Fix
 
