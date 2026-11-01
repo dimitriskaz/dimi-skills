@@ -15,6 +15,7 @@
         "agent-tools",
         "agentic-harness",
         "agents",
+        "chat-ui",
         "code-review",
         "compounding",
         "evals",
