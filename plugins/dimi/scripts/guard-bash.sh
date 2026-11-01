@@ -43,13 +43,18 @@ json_tool || exit 0
 INPUT=$(cat)
 CMD=$(printf '%s' "$INPUT" | json_get tool_input command)
 [ -z "$CMD" ] && exit 0
-cd "${CLAUDE_PROJECT_DIR:-.}" 2>/dev/null || true
+# Judge paths from where the command will run: the hook input's cwd (Claude's shell may have cd'd into a
+# package in an earlier call), then the project dir. Without this, `rm a.ts` from src/ is resolved from the root.
+HOOK_CWD=$(printf '%s' "$INPUT" | json_get cwd)
+cd "${HOOK_CWD:-${CLAUDE_PROJECT_DIR:-.}}" 2>/dev/null || cd "${CLAUDE_PROJECT_DIR:-.}" 2>/dev/null || true
 
 # ------------------------------------------------------------- configuration ----
 # Plugin options (CLAUDE_PLUGIN_OPTION_*) first, env vars as fallback, then defaults.
 TICKET_REGEX="${CLAUDE_PLUGIN_OPTION_TICKET_REGEX-${GUARD_TICKET_REGEX-[A-Z][A-Z0-9]+-[0-9]+}}"
 case "$TICKET_REGEX" in none|NONE|None) TICKET_REGEX="";; esac
 TICKET_REGEX=$(printf '%s' "$TICKET_REGEX" | sed 's/\\d/[0-9]/g')   # grep -E has no \d: PROJ-\d+ would match nothing
+# An invalid regex makes grep exit 2, which would read as "no key found" and blame every commit message.
+TICKET_BAD=0; if [ -n "$TICKET_REGEX" ] && ! valid_ere "$TICKET_REGEX"; then TICKET_BAD=1; fi
 PROTECTED_BRANCHES="${CLAUDE_PLUGIN_OPTION_PROTECTED_BRANCHES:-${GUARD_PROTECTED_BRANCHES:-main|master|production}}"
 # The repo's default branch is always protected, whatever it is called (added once).
 DEFAULT_BRANCH="${CLAUDE_PLUGIN_OPTION_DEFAULT_BRANCH:-${GUARD_DEFAULT_BRANCH:-$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||')}}"
@@ -125,7 +130,10 @@ strip_heredocs() {
         d = substr($0, RSTART, RLENGTH); sub(/^[^<]*<<-?[[:space:]]*["\047]?/, "", d); sub(/["\047]$/, "", d); held = "" } }
     END { if (d != "") printf "%s", held }'
 }
-CMD_S=$(blank_quoted "$(strip_heredocs "$CMD")")
+# blank_quoted is a bash character loop and goes quadratic on very long commands (50 KB took ~7 s against the hook's
+# 5 s timeout, after which the guard would be skipped entirely). Past 16 KB the quotes are left in place instead:
+# the checks then fail closed on a quoted `git push origin main` rather than open on everything.
+if [ "${#CMD}" -gt 16000 ]; then CMD_S=$(strip_heredocs "$CMD"); else CMD_S=$(blank_quoted "$(strip_heredocs "$CMD")"); fi
 
 # A git invocation with optional global options before the subcommand.
 # POSIX ERE only (macOS grep has no \b): "git" at the start or after a non-word character, so /usr/bin/git and
@@ -212,6 +220,17 @@ check_sweeping_path() {
 check_never_stage() { # one explicit path: never a secret, key, state or auth file
   local p="$1"
   p=${p#./}; case "$p" in :\(*\)*) p=${p#*\)} ;; esac   # drop a leading ./ and a :(top)-style magic prefix
+  # `git add .claude` names the parent of the hook state and agent worktrees; block it only while one of those
+  # exists and is not ignored (a repo that gitignores .claude/.cache/ may add the folder freely).
+  case "$p" in .claude|.claude/|.claude/.cache|.claude/.cache/|.claude/worktrees|.claude/worktrees/)
+    local d base="${GDIR:-$CWD}"
+    if [ "$base" != "?" ]; then
+      for d in .claude/.cache .claude/worktrees; do
+        [ -e "$base/$d" ] && ! git -C "$base" check-ignore -q "$d" 2>/dev/null \
+          && block "'git add $1' would stage $d (hook state or agent worktrees). Stage the files you mean (git add .claude/rules/<file>) or add .claude/.cache/ and .claude/worktrees/ to .gitignore."
+      done
+    fi ;;
+  esac
   printf '%s' "$p" | grep -qE -- "$STAGE_ALLOW_RE" && return 0
   printf '%s' "$p" | grep -qE -- "$STAGE_BLOCK_RE" \
     && block "'git add $1' would stage a file that must never be committed (env, key, credential, state or auth file). Leave it unstaged; if it holds a secret that was ever committed, rotate it."
@@ -354,6 +373,7 @@ check_commit() { # args after `commit` (quotes blanked)
     esac
   done
   [ -n "$TICKET_REGEX" ] || return 0
+  [ "$TICKET_BAD" = 1 ] && block "the ticket_regex plugin option /$TICKET_REGEX/ is not a valid extended regex, so commit messages cannot be checked. Fix it (/plugin → dimi → Configure options) or set it to 'none'."
   if [ "$has_m" = 1 ]; then
     # Read the -m/--message values from the ORIGINAL command (flattened so a heredoc message is one string).
     local flat msgs
