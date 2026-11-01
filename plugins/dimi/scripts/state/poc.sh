@@ -12,6 +12,7 @@ DB=$(resolve_db "${3-}")
 
 if [ "${4-}" = secrets ]; then
   if [ -z "$(top)" ]; then echo "not a git repository"; exit 0; fi
+  if ! git rev-parse -q --verify HEAD >/dev/null 2>&1; then echo "no commits yet; nothing to scan"; exit 0; fi
   HITS=$(secret_hits HEAD)
   if [ -n "$HITS" ]; then printf '%s\n' "$HITS"; else echo "no secret-shaped lines"; fi
   exit 0
