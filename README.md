@@ -6,7 +6,7 @@ A Claude Code plugin marketplace with one plugin, `dimi`: a reviewer-grade devel
 
 | Half | Skills | Also |
 | --- | --- | --- |
-| **Development loop** | `help`, `grill-me`, `plan-from-ticket`, `ui-states-review`, `tidy`, `pr-self-review` (+ `pr-correctness-scalability-review`, `pr-security-data-review`), `commit-push-pr`, `address-review`, `compound`, `debug`, `walkthrough`, `release-notes`, `poc`, `port`, `agent-tool-design`, `agent-bootstrap`, `agent-evals` | 6 agents (`explore`, `reviewer`, `verifier`, `spec-writer`, `implementer`, `debugger`); 5 hooks (format on edit, Stop gate, Bash guard, session banner, session-end note) |
+| **Development loop** | `help`, `grill-me`, `plan-from-ticket`, `ui-states-review`, `agent-ui-review`, `tidy`, `pr-self-review` (+ `pr-correctness-scalability-review`, `pr-security-data-review`), `commit-push-pr`, `address-review`, `compound`, `debug`, `walkthrough`, `release-notes`, `poc`, `port`, `agent-tool-design`, `agent-bootstrap`, `agent-evals` | 6 agents (`explore`, `reviewer`, `verifier`, `spec-writer`, `implementer`, `debugger`); 5 hooks (format on edit, Stop gate, Bash guard, session banner, session-end note) |
 | **Agent engineering** | `harness-reference`, `review-agent`, `harden-mcp`, `client-profile`, `refresh-harness` | reference library with "as of" dates; rubrics with tested fix patterns |
 
 They compose: `pr-self-review` calls `review-agent`/`harden-mcp` when a diff touches agent or MCP code; `agent-bootstrap` reads `harness-reference`; every skill honours `.claude/fde-client-profile.md`. Details: [plugins/dimi/README.md](plugins/dimi/README.md) and [docs/guide.md](docs/guide.md).
@@ -40,7 +40,7 @@ Install at **user** scope by default. Use **project** scope in team repositories
 
 1. Install at project scope and copy [`templates/project-claude/`](templates/project-claude/README.md) into the repo (permissions, `enabledPlugins`, starter `.claude/rules/`, `CLAUDE.md` snippet). Set the plugin options: `/plugin` → dimi → **Configure options** (ticket regex, default branch, typecheck script, Python lint command, local checks line).
 2. Not sure which skill fits? `/dimi:help [task]` lists them all, including the manual-only ones Claude cannot see on its own.
-3. Per ticket: `/dimi:plan-from-ticket` → `/dimi:grill-me` (optional, pressure-test the plan; it also works on a fresh idea before planning) → build → `/dimi:ui-states-review` (UI) → `/dimi:tidy` → `/dimi:pr-self-review` → `/dimi:commit-push-pr` → paste the review into `/dimi:address-review` → `/dimi:compound`. Something red at any point: `/dimi:debug`.
+3. Per ticket: `/dimi:plan-from-ticket` → `/dimi:grill-me` (optional, pressure-test the plan; it also works on a fresh idea before planning) → build → `/dimi:ui-states-review` (UI; plus `/dimi:agent-ui-review` for chat or agent screens) → `/dimi:tidy` → `/dimi:pr-self-review` → `/dimi:commit-push-pr` → paste the review into `/dimi:address-review` → `/dimi:compound`. Something red at any point: `/dimi:debug`.
 4. The hooks run on their own: format on edit, Stop gate, Bash guard, session banner, session-end note. If Claude feels slow or several shells appear, read [docs/guide.md](docs/guide.md) → "If Claude feels slow".
 
 ## Demo branch and productionising (FDE)
@@ -64,7 +64,7 @@ templates/project-claude/            per-repo starter: settings (permissions, en
 plugins/dimi/
   .claude-plugin/plugin.json         manifest with userConfig options; bump version per release
   CHANGELOG.md · README.md
-  skills/                            24 skills (19 development loop and agent building, 5 agent engineering)
+  skills/                            25 skills (20 development loop and agent building, 5 agent engineering)
   agents/                            explore, reviewer, verifier, spec-writer, implementer, debugger
   hooks/hooks.json                   5 hook registrations → scripts/
   scripts/                           5 hook scripts (format-file, stop-check, guard-bash, session-context, session-end-note),

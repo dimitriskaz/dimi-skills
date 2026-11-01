@@ -77,7 +77,8 @@ if [ -z "$DEFAULT_BRANCH" ]; then
 fi
 
 # Base: origin's default branch > the local default branch (no remote yet) > HEAD (uncommitted work only)
-BASE=$(git merge-base "origin/$DEFAULT_BRANCH" HEAD 2>/dev/null || git merge-base "$DEFAULT_BRANCH" HEAD 2>/dev/null || git rev-parse HEAD 2>/dev/null)
+BASE=$(git merge-base "origin/$DEFAULT_BRANCH" HEAD 2>/dev/null || git merge-base "$DEFAULT_BRANCH" HEAD 2>/dev/null || git rev-parse -q --verify HEAD 2>/dev/null)
+[ -z "$BASE" ] && exit 0   # no commits yet (a plain `rev-parse HEAD` would print the literal HEAD): nothing to diff against
 CHANGED=$( { git -c core.quotePath=false diff --name-only "$BASE" 2>/dev/null; git -c core.quotePath=false ls-files --others --exclude-standard; } | grep -vE -- "$LOCAL_STATE_RE" | sort -u )
 [ -z "$CHANGED" ] && exit 0
 

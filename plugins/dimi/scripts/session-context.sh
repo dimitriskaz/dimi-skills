@@ -23,6 +23,11 @@ DEFAULT_BRANCH="${CLAUDE_PLUGIN_OPTION_DEFAULT_BRANCH:-${STOP_DEFAULT_BRANCH:-}}
 TICKET_REGEX="${CLAUDE_PLUGIN_OPTION_TICKET_REGEX-${GUARD_TICKET_REGEX-[A-Z][A-Z0-9]+-[0-9]+}}"
 case "$TICKET_REGEX" in none|NONE|None) TICKET_REGEX="";; esac
 TICKET_REGEX=$(printf '%s' "$TICKET_REGEX" | sed 's/\\d/[0-9]/g')   # grep -E has no \d
+TICKET_WARN=""
+if [ -n "$TICKET_REGEX" ] && ! valid_ere "$TICKET_REGEX"; then
+  TICKET_WARN="WARNING: the ticket_regex plugin option /$TICKET_REGEX/ is not a valid extended regex; the Bash guard will refuse every commit until it is fixed or set to 'none'."
+  TICKET_REGEX=""
+fi
 LOCAL_CHECKS="${CLAUDE_PLUGIN_OPTION_LOCAL_CHECKS:-see CLAUDE.md Commands section}"
 DEMO_BRANCH="${CLAUDE_PLUGIN_OPTION_DEMO_BRANCH:-}"
 # --------------------------------------------------------------------------------
@@ -37,6 +42,7 @@ N_CHANGED=$(printf '%s\n' "$CHANGED" | grep -c . || true)
 UNTRACKED=$(git ls-files --others --exclude-standard | grep -vE -- "$LOCAL_STATE_RE" | grep -c . || true)
 
 echo "## Working state ($SOURCE)"
+[ -n "$TICKET_WARN" ] && echo "$TICKET_WARN"
 _notes="${CLAUDE_PLUGIN_DATA:-.claude/.cache}/sessions/$(project_key).log"
 if [ "$SOURCE" != "compact" ] && [ -f "$_notes" ]; then echo "Last session here: $(tail -n 1 "$_notes")"; fi
 echo "Branch: $BRANCH  ·  Ticket: ${TICKET:-none in branch name}  ·  Commits on branch: $COMMITS  ·  Behind $DEFAULT_BRANCH: $BEHIND"
