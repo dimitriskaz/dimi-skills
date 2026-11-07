@@ -26,6 +26,6 @@ case "${1-}" in
         else head -1 "$F"; tail -n "${2:-+2}" "$F" | grep -v "^ts$(printf '\t')"; fi ;;
   path) echo "$F" ;;
   commit) [ -f "$F" ] || { echo "no decision log to commit" >&2; exit 1; }
-          D="$T/${2:?usage: decision-log.sh commit <dir in the repo>}"; mkdir -p "$D" && cp "$F" "$D/decisions-$(safe_name "$(branch_name)").tsv" && echo "copied to $D/decisions-$(safe_name "$(branch_name)").tsv (stage and commit it yourself)" ;;
+          D="${2:?usage: decision-log.sh commit <dir in the repo>}"; case "$D" in /*) ;; *) D="$T/$D" ;; esac; mkdir -p "$D" && cp "$F" "$D/decisions-$(safe_name "$(branch_name)").tsv" && echo "copied to $D/decisions-$(safe_name "$(branch_name)").tsv (stage and commit it yourself)" ;;
   *) echo "usage: decision-log.sh start|add|read|path|commit … (see the header of this file)" >&2; exit 2 ;;
 esac
