@@ -61,7 +61,11 @@ When the user asks for one of these, or asks what else to install, give the exac
 | pstack | `/plugin marketplace add cursor/plugins` then `/plugin install pstack@cursor-plugins` | Goal in, playbook out, with evidence; named principles to steer with ("apply subtract before you add"); decision log and overnight contract for unattended runs; `unslop`, `no-comments`, `tdd`, benchmark checklist | `/pstack:poteto-mode <goal and done check>`, `/pstack:poteto-help` |
 | cursor-team-kit | not in Cursor's Claude Code marketplace: copy `cursor-team-kit/skills/thermo-nuclear-code-quality-review/` from `cursor/plugins` into `~/.claude/skills/`, or declare the inline marketplace shown in the dimi-skills README and `/plugin install cursor-team-kit@cursor-team-kit` | A very strict maintainability review (structure, branching, 1,000-line files, wrappers, casts, layers) plus `deslop`, `verify-this`, `fix-ci`, `loop-on-ci`, `review-and-ship`, `what-did-i-get-done`, `weekly-review` | `/thermo-nuclear-code-quality-review` (skills dir) or `/cursor-team-kit:thermo-nuclear-code-quality-review` |
 
-Overlaps: ponytail's review and pstack's playbooks parallel `pr-self-review` and the dimi loop; suggest one per task. The thermo-nuclear review covers structure, which `pr-self-review` does not, so it runs well after it.
+How they work together once installed (dimi detects them from the plugin cache; nothing is copied):
+- `/dimi:pr-self-review` runs its four stages, then, as stage 5, offers the installed review passes (thermo-nuclear maintainability, ponytail review) on the same diff and folds their findings into the one report as `TN-`/`PT-` ids with dimi severities; the option `companion_reviews` (`ask`, `always`, `never`) sets whether it asks first. A `shortcut:` marker in the diff becomes a Note for `/ponytail-debt`'s ledger.
+- `/dimi:commit-push-pr` applies pstack's `unslop` patterns to the commit bodies and PR body it drafts.
+- `/dimi:debug` applies pstack's `benchmark-checklist` to any before-and-after number before reporting a perf fix.
+- The companions' own commands still work on their own (`/ponytail-review`, `/pstack:poteto-mode`, `/cursor-team-kit:thermo-nuclear-code-quality-review`); run one per task next to the dimi loop, not both playbooks on the same ticket.
 
 ## Also in the plugin
 

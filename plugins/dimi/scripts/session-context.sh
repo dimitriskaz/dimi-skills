@@ -61,6 +61,9 @@ echo "Loop: /dimi:plan-from-ticket → (/dimi:grill-me) → build → /dimi:ui-s
 if [ -n "$DEMO_BRANCH" ] && [ "$BRANCH" = "$DEMO_BRANCH" ]; then
   echo "This is the demo branch ($DEMO_BRANCH): merge-only, pushed with /dimi:poc push, never a PR base. Production work happens on a feature branch from $DEFAULT_BRANCH."
 fi
+_PR="${CLAUDE_CODE_PLUGIN_CACHE_DIR:-$HOME/.claude/plugins}"; _COMP=""
+for _c in ponytail pstack cursor-team-kit; do for _d in "$_PR"/cache/*/"$_c"/*/; do [ -d "$_d" ] && [ ! -e "$_d/.orphaned_at" ] && { _COMP="${_COMP:+$_COMP, }$_c"; break; }; done; done
+[ -n "$_COMP" ] && echo "Recommended plugins installed: $_COMP — pr-self-review offers their review passes as stage 5; commit-push-pr and debug use their prose and benchmark rules."
 [ -f .claude/fde-client-profile.md ] && echo "Client profile present: .claude/fde-client-profile.md — its constraints override defaults."
 if [ "$SOURCE" = "compact" ]; then
   echo "Context was just compacted: re-read the plan/notes for this ticket before continuing, and re-verify any claim you were relying on."
