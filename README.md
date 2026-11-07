@@ -36,6 +36,24 @@ Install at **user** scope by default. Use **project** scope in team repositories
 - The `version` in `plugins/dimi/.claude-plugin/plugin.json` controls updates: users stay on a version until it is bumped.
 - To pin to a release, add the marketplace with a ref: `/plugin marketplace add dimitriskaz/dimi-skills#v1.8.0`.
 
+## Companion plugins
+
+The marketplace also lists three third-party plugins, so they install from the same place. They are not copied into dimi and not maintained here; each installs from its own repository under its own MIT licence, and its skills keep their own prefix.
+
+```
+/plugin install ponytail@dimi-skills          # /ponytail lite|full|ultra, /ponytail-review, /ponytail-audit, /ponytail-debt
+/plugin install pstack@dimi-skills            # /pstack:poteto-mode <goal and done check>, /pstack:poteto-help
+/plugin install cursor-team-kit@dimi-skills   # /cursor-team-kit:thermo-nuclear-code-quality-review, deslop, verify-this, fix-ci, …
+```
+
+| Plugin | What it adds next to dimi | Overlap to know about |
+| --- | --- | --- |
+| [ponytail](https://github.com/DietrichGebert/ponytail) | A stance for *writing* code: the least code that works, climbed rung by rung (exists already, standard library, platform, installed dependency, one line, then the minimum), never cutting validation, data-loss handling, security or accessibility; `shortcut:` markers with a debt ledger; a cost band above the prompt | `/ponytail-review` and `pr-self-review` both review the diff; run dimi's as the gate and ponytail's for the "what to cut" pass. Ponytail installs its own hooks (status line, band), which run beside dimi's |
+| [pstack](https://github.com/cursor/plugins/tree/main/pstack) | A router: state a goal and a checkable done condition, `/pstack:poteto-mode` picks the playbook and shows evidence; named principles to steer with mid-task; a decision log and overnight contract for unattended runs; `unslop`, `no-comments`, `tdd`, a benchmark checklist | Its bug-fix, feature and PR playbooks parallel dimi's loop; use one or the other per task, not both. Installed from the Claude Code build at `harness/pstack/claude-code` in `cursor/plugins` |
+| [cursor-team-kit](https://github.com/cursor/plugins/tree/main/cursor-team-kit) | `thermo-nuclear-code-quality-review`, an unusually strict maintainability review (code-judo simplifications, branching growth, files past 1,000 lines, thin wrappers, casts, logic in the wrong layer), plus `deslop`, `verify-this`, `fix-ci`, `loop-on-ci`, `review-and-ship`, `what-did-i-get-done`, `weekly-review` | Written for Cursor and shipped without a Claude Code manifest: Claude Code loads its `skills/` and `agents/` directly and ignores its Cursor `rules/`; agent fields such as `model: fast` are Cursor's and may be ignored. The maintainability review complements `pr-self-review`, which does not cover structure |
+
+Before installing, read each plugin's repository: they run hooks and skills with the same access dimi has. They follow their upstream default branch and, like every third-party marketplace entry, do not auto-update; `claude plugin update <name>@dimi-skills` refreshes one. Pin one by adding `"ref"` or `"sha"` to its entry in `.claude-plugin/marketplace.json` in your fork.
+
 ## Using it on a repository
 
 1. Install at project scope and copy [`templates/project-claude/`](templates/project-claude/README.md) into the repo (permissions, `enabledPlugins`, starter `.claude/rules/`, `CLAUDE.md` snippet). Set the plugin options: `/plugin` → dimi → **Configure options** (ticket regex, default branch, typecheck script, Python lint command, local checks line).
