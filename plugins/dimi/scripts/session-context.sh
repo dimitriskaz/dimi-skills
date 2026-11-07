@@ -61,6 +61,8 @@ echo "Loop: /dimi:plan-from-ticket → (/dimi:grill-me) → build → /dimi:ui-s
 if [ -n "$DEMO_BRANCH" ] && [ "$BRANCH" = "$DEMO_BRANCH" ]; then
   echo "This is the demo branch ($DEMO_BRANCH): merge-only, pushed with /dimi:poc push, never a PR base. Production work happens on a feature branch from $DEFAULT_BRANCH."
 fi
+_dl="${CLAUDE_PLUGIN_DATA:-.claude/.cache}/decisions/$(project_key).tsv"
+if [ "$SOURCE" != "compact" ] && [ -s "$_dl" ]; then echo "Decision log: $(($(grep -c '' "$_dl") - 1)) rows, last: $(tail -n 1 "$_dl" | cut -f3,6 | tr '\t' ' ' | cut -c1-120) (read it: /dimi:decision-log read)"; fi
 [ -f .claude/fde-client-profile.md ] && echo "Client profile present: .claude/fde-client-profile.md — its constraints override defaults."
 if [ "$SOURCE" = "compact" ]; then
   echo "Context was just compacted: re-read the plan/notes for this ticket before continuing, and re-verify any claim you were relying on."

@@ -14,6 +14,7 @@ This is a **gate, not a GitHub action**. Never post reviews, comments or approva
 Four stages, in this order:
 1. **Compliance gate** (repo policy, mechanical, plus running CI's local equivalents) — section 5.
 2. **Code review** (correctness, scalability, conventions) — load and follow `pr-correctness-scalability-review`.
+   2b. **Structure review** (maintainability) — load and follow `pr-structure-review` against the same `Diff`; it returns findings in our severities and interchange format, ids `ST-`, `category: maintainability`. Skip it for a diff that is only data, docs or fixtures.
 3. **Security & data review** — load and follow `pr-security-data-review`. If the repo has its own security-review skill, run it too against the same working tree and include its result.
 4. **Domain reviews when they apply** — if the diff touches agent/LLM code, run `/dimi:review-agent <changed paths>`; if it touches an MCP server, `/dimi:harden-mcp <path>`. Both run as forked subagents and return their report in this turn; wait for it. Fold their findings in, prefixed `RA-`/`HM-` (their check ids collide), mapping severities: Critical → Blocker; High → Should fix, promoted to Blocker when it meets a Blocker criterion in section 1; Medium → Minor, promoted to Should fix when it sits on a realistic path; Low → Minor. Their verdict "Ready with conditions" corresponds to our "Ready with notes". Do not re-derive their findings. If the diff has substantial frontend work (new or reworked screens, components or their loaders, not a copy or style tweak), load and follow `${CLAUDE_PLUGIN_ROOT}/skills/ui-states-review/SKILL.md` against the same `Diff` and fold its findings in prefixed `US-`. If one of those screens is model-backed (it renders a model's stream, shows the agent's tool calls, or asks a person to approve an action the agent proposed; a live dashboard on a WebSocket with no model behind it is not), also load `${CLAUDE_PLUGIN_ROOT}/skills/agent-ui-review/SKILL.md` for that screen and fold its findings in prefixed `AU-`. Both return findings in our severities and interchange format, so no mapping; neither repeats the other's checks. A finding `agent-ui-review` cross-references to a `review-agent` check id is reported once, on the side that should carry the fix.
 
@@ -158,7 +159,7 @@ predates: yes|no
 also_affects: <optional>
 END
 ```
-Then `STRENGTHS:` bullets and `CHECKED_CLEAN:` bullets (category — one-line reason).
+Then `STRENGTHS:` bullets and `CHECKED_CLEAN:` bullets (category — one-line reason). Stage 2b uses `category: maintainability` and ids `ST-<seq>`.
 
 ## 8. Report
 

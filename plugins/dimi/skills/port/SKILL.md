@@ -76,7 +76,7 @@ Expect mostly *rewrite*. A port where everything is *reuse* means the POC was al
 
 ## 5. Build it through the normal loop
 
-1. `/dimi:plan-from-ticket` with the rewrite list as the problem statement and the POC as reference material: identity keys, run-it-twice, scale, failure modes, settings placement, tests that fail without the change, commit plan. The plan must name what the POC got wrong and what the production version does instead.
+1. State the done check first, so the port cannot drift: the behaviour the demo shows, named as checks that pass or fail on the production branch (the e2e spec, the row count, the screen state). Then `/dimi:plan-from-ticket` with the rewrite list as the problem statement and the POC as reference material: identity keys, run-it-twice, scale, failure modes, settings placement, tests that fail without the change, commit plan. The plan must name what the POC got wrong and what the production version does instead.
 2. Implement on the new branch (in the production worktree; the integration worktree is for `grep`/`read` and for running the touched tests against the future surface). Reuse hunks first, then rewrites, one commit per logical change.
 3. `/dimi:ui-states-review` if UI; POC hunks carry narrative, so ask the author to run `/dimi:tidy`, or follow `${CLAUDE_PLUGIN_ROOT}/skills/tidy/SKILL.md` §1–4 inline; then `/dimi:pr-self-review` — which also fails on any surviving demo marker.
 4. Ask the author to run `/dimi:commit-push-pr --base <branch from §3>` (not model-invocable); hand them the **Origin** section for the PR body: demo branch and commits, the reuse/rewrite/drop table, and the shortcuts deliberately *not* ported.

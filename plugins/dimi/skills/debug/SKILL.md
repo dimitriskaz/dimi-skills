@@ -23,6 +23,7 @@ OUT=${OUT:-$TOP/../debug-$REPO}; mkdir -p "$OUT"
 - **Since when**: last known good (commit, date, deploy); what changed in between (`git log --oneline <good>..HEAD -- <area>`, recent dependency bumps, config or data changes).
 - **Environment**: local / CI / preview / production; which tenant or data; which versions (node, python, browser). Many "bugs" are environment deltas.
 - **Blast radius**: who is affected and how badly — this sets how fast to move and whether to roll back first.
+- **Done check**: the one observation that can pass or fail and means fixed (the named test green; the row count equal; the p95 under the number). Write it now; a run with no done check drifts into "seems better".
 
 Do not form a theory yet.
 
@@ -88,6 +89,7 @@ Rules: one hypothesis at a time; the prediction is written *before* the test; a 
 2. The touched packages' tests and typecheck pass (baseline from step 2 restored or better), one command at a time.
 3. Related inputs: the neighbours of the minimised input (empty, one, many, unicode, timezone edge) — add a test for any that fail.
 4. Remove every `DBG-<slug>` line and probe: ask the author to run `/dimi:tidy` scoped to this change, or follow `${CLAUDE_PLUGIN_ROOT}/skills/tidy/SKILL.md` §1–4 inline.
+5. **A performance fix is proven by a number, and the number is checked before it is reported.** Answer, in the log: what limits the measurement (CPU, I/O, the network, a lock) and did the fix touch that; was each side measured the same way (same data, same warm-up, same flags); is it repeatable, in alternating runs, not one before and one after; did errors or early exits shorten the fast run; did the work actually happen inside the timed region; does the end-to-end path the user sees improve, or only the micro-benchmark. A number that fails any of these is reported as inconclusive, with the command that would settle it, never as a speedup. Verdicts: faster, slower, no measurable difference, inconclusive.
 
 ## 7. Report and compound
 

@@ -7,6 +7,7 @@
 #   review.sh record   <Out>                     point LATEST at the report once it is written
 #   review.sh worklist <Out>                     put address-review's worklist beside that report
 #   review.sh latest   <default_branch>          the newest self-review report (no build needed)
+#   review.sh sizes    <Out> [max_file_lines]     lines before and after for every file in the diff; marks files past the limit (pr-structure-review)
 # build saves its context in <Out>/context.env and prints it; every later step reads it from the <Out> it is
 # given, so the base, mode and options cannot drift between steps. Unconfigured options arrive as
 # `${user_config.<key>}` and count as unset.
@@ -135,6 +136,30 @@ worklist() {
   else cp "$W" "$(dirname "$R")/" && echo "copied beside $R"; fi
 }
 
+# sizes <Out> [max]: for each file in the diff, lines at the base and now, flagging files that crossed or grew past max
+# (default 1000). Untracked files count from 0. Binary files are skipped.
+sizes() {
+  load "${1-}"; MAX=$(opt "${2-}" 1000); case "$MAX" in ''|*[!0-9]*) MAX=1000 ;; esac
+  cd "$TOP" || exit 1
+  if [ -n "$HEAD_REF" ]; then FILES=$(git -c core.quotePath=false diff --name-only "$BASE" "$HEAD_REF" 2>/dev/null)
+  else FILES=$( { git -c core.quotePath=false diff --name-only "$BASE" 2>/dev/null; git -c core.quotePath=false ls-files --others --exclude-standard | grep -vE -- "$NEVER_DUMP_RE|$LOCAL_STATE_RE"; } | sort -u); fi
+  echo "File sizes (lines before → after; limit $MAX):"
+  printf '%s\n' "$FILES" | grep . | while IFS= read -r f; do
+    B=$(git show "$BASE:$f" 2>/dev/null | grep -c ''); B=${B:-0}
+    if [ -n "$HEAD_REF" ]; then A=$(git show "$HEAD_REF:$f" 2>/dev/null | grep -c '')
+    elif [ -f "$f" ]; then A=$(grep -c '' "$f" 2>/dev/null); else A=0; fi; A=${A:-0}
+    # numstat prints "-<tab>-" for a binary file (an untracked one is compared with --no-index against /dev/null)
+    if [ -n "$HEAD_REF" ]; then NS=$(git_diff --numstat "$BASE" "$HEAD_REF" -- "$f" 2>/dev/null)
+    elif git ls-files --error-unmatch -- "$f" >/dev/null 2>&1; then NS=$(git_diff --numstat "$BASE" -- "$f" 2>/dev/null)
+    else NS=$(git_diff --no-index --numstat /dev/null "$f" 2>/dev/null); fi
+    case "$NS" in -*) continue ;; esac
+    FLAG=''
+    if [ "$B" -le "$MAX" ] && [ "$A" -gt "$MAX" ]; then FLAG="  <-- crossed $MAX in this change"
+    elif [ "$B" -gt "$MAX" ] && [ "$A" -gt "$B" ]; then FLAG="  <-- already past $MAX and grew"; fi
+    printf '  %6s → %-6s %s%s\n' "$B" "$A" "$f" "$FLAG"
+  done | sort -k3,3nr
+}
+
 latest() {
   T=$(top) || { echo "not a git repository"; exit 0; }
   cd "$T" || exit 0
@@ -150,5 +175,6 @@ case "$CMD" in
   record) record "$@" ;;
   worklist) worklist "$@" ;;
   latest) latest "$@" ;;
-  *) echo "usage: review.sh build|gates|notes|record|worklist|latest … (see the header of this file)" >&2; exit 2 ;;
+  sizes) sizes "$@" ;;
+  *) echo "usage: review.sh build|gates|notes|record|worklist|latest|sizes … (see the header of this file)" >&2; exit 2 ;;
 esac
