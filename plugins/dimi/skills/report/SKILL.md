@@ -23,7 +23,7 @@ These are the numbers the report quotes (commits, files, lines, tests, languages
 - **Subject** from `$ARGUMENTS`: a ticket key, a branch or range (`v1.4.0..HEAD`), a PR number, a path (`services/import`), or a question ("what is the state of the auth module"). Nothing given: the current branch when it is not the default branch, else the whole repository.
 - **Kind** (`--kind`, else inferred): `ticket` (a branch, key or PR: what was done and whether it is ready), `codebase` (a repo or path: what it is, how it is built, where the risk is), `review` (render an existing review report: self-review, `review-agent`, `harden-mcp`, a colleague's review), `investigation` (a bug or incident: timeline, root cause, fix, proof), `release` (a range: what shipped, what to migrate). Section lists per kind in [references/shapes.md](references/shapes.md); read the one that applies.
 - **Audience** (`--audience`, default `reviewer`): *reviewer* keeps `path:line` inline and leads with risk; *newcomer* gets vocabulary and order; *client* and *stakeholder* get behaviour, outcomes and decisions with no file paths in the body (they move to a collapsed appendix), and nothing `.claude/fde-client-profile.md` forbids. Internal customer names, incident details and secret-looking lines never appear in a client or stakeholder report.
-- **Output**: `$OUT/report-<slug>-<YYYY-MM-DD>.html`, where `$OUT` is the session's scratchpad directory if it gives one, `--out` if given, else `<top>/../report-<repo>/` next to the checkout. Never inside the repository: Claude can load this skill on its own and must not leave a tracked file behind; the author copies it into a docs folder if the repo has that convention.
+- **Output**: `$OUT/report-<slug>-<YYYY-MM-DD>.html`, where `$OUT` is `--out` when given, else the session's scratchpad directory if it gives one, else `<top>/../report-<repo>/` next to the checkout. Never inside the repository: Claude can load this skill on its own and must not leave a tracked file behind; the author copies it into a docs folder if the repo has that convention.
 
 ## 2. Gather, do not recall
 
@@ -65,7 +65,7 @@ Rules for the page:
 - Semantic colour means something: `good` passed or fixed, `warn` should fix or not run, `crit` blocker or failed, `info` minor or a note. Never colour for emphasis.
 - `<title>` is the name of the report; the `.crumbs` carry the kind. The TOC lists every `section id` in order and nothing else.
 - Keep the token block untouched unless the repo has a `.claude/report-theme.css`; then inline that file's contents right after the `:root` block so its tokens win (a client's colours and faces live there, never in this plugin).
-- Fonts load from Google Fonts with system fallbacks; nothing else is fetched. No other scripts, no CDN CSS, no iframes, no tracking.
+- The page fetches two things at most, both optional: the fonts (system fallbacks are declared) and, only when a Mermaid block exists, the Mermaid script the template already loads (the diagram stays readable as source without it). No other scripts, no CDN CSS, no iframes, no tracking.
 - No emoji, no exclamation marks, no marketing. Present tense, plain words, one idea per sentence, by `${CLAUDE_PLUGIN_ROOT}/skills/prose/SKILL.md`. Expand an acronym the first time.
 - A client or stakeholder report has no `path:line` in the body: number them `[1]`, `[2]` and resolve them in the Appendix.
 

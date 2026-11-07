@@ -82,11 +82,11 @@ Tell the author up front what the review covers (the scope line: N commits, M st
 Run `build` with the PR number appended. It writes `pr.json` and `checks.txt` into `Out` and the PR's own changes (three-dot, head fetched as `pull/<N>/head`, so fork PRs work; `gh pr diff` when the remote has no pull refs) into the diff, and prints the report header line from GitHub. Read the PR's code at `Head` (`git diff <Base> <Head> -- <path>`, `git show <Head>:<path>`), never the local working tree.
 
 ### Budget
-- **Proportional depth.** The gate must not become the slow part. Under ~150 changed lines of code: run the compliance checks, apply only the lenses for the layers actually touched, no sub-agents, and aim to finish in a few minutes; the report can be short. 150–2,000 lines: full lenses, still in this session. Over ~2,000: delegate as below. A small diff with a long review is a sign the review is padding.
+- **Proportional depth.** The gate must not become the slow part. Under ~150 changed lines of code: run the compliance checks, apply only the lenses for the layers actually touched, skip stage 2b unless `review.sh sizes` flags a file or a hunk adds a branch to a shared flow, no sub-agents, and aim to finish in a few minutes; the report can be short. 150–2,000 lines: full lenses, still in this session. Over ~2,000: delegate as below. A small diff with a long review is a sign the review is padding.
 - **Local checks run one at a time**, scoped to the touched packages (`cd <pkg> && <pm> run …`, with the package manager the repo uses). Never launch two heavy commands in parallel shells and never fork agents to run checks; parallel Node processes fight for CPU and both get slower.
 - Reading order by risk: routes/endpoints → data access and query builders → connectors/outbound calls → jobs/workers → schema, seeds, contracts → model/view-model code → UI → tests and fixtures → docs. Binaries are counted only.
 - Read the diff per file (`git diff <Base> -- <path>`; PR mode `git diff <Base> <Head> -- <path>`), and for any hunk you doubt read the **whole function and its callers** in the working tree (PR mode: `git show <Head>:<path>`). Hunks alone produce lint, not review.
-- Over ~2,000 changed lines of code: run stages 2 and 3 as two `reviewer` agents in parallel, one told "stage 2 only" (`pr-correctness-scalability-review`), the other "stage 3 only" (`pr-security-data-review`), each given the `Diff` path (PR mode: also `Base` and `Head`), the resolved policy block, the `SCALE` line and the interchange format (section 7), returning finding blocks. Tell each that the compliance gate has already run lint, typecheck and tests, so it must **not** run them (two parallel heavy checks fight for CPU). Spot-check two CONFIRMED findings from each before accepting.
+- Over ~2,000 changed lines of code: run stages 2 and 3 as two `reviewer` agents in parallel, one told "stages 2 and 2b only" (`pr-correctness-scalability-review`, then `pr-structure-review`), the other "stage 3 only" (`pr-security-data-review`), each given the `Diff` path (PR mode: also `Base` and `Head`), the resolved policy block, the `SCALE` line and the interchange format (section 7), returning finding blocks. Tell each that the compliance gate has already run lint, typecheck and tests, so it must **not** run them (two parallel heavy checks fight for CPU). Spot-check two CONFIRMED findings from each before accepting.
 
 ## 4. Understand before judging
 
@@ -147,7 +147,7 @@ Then classify each finding with section 1 and decide the verdict.
 FINDING
 id: <branch-or-pr>-<seq>     # stable across re-runs: never renumber; retire ids instead
 severity: Blocker | Should fix | Minor
-category: correctness | scalability | conventions | security | data-handling
+category: correctness | scalability | conventions | maintainability | security | data-handling
 confidence: CONFIRMED | PLAUSIBLE
 title: <the defect, not the symptom>
 where: path/to/file.ts:123 [, other/end.ts:456]
@@ -159,7 +159,7 @@ predates: yes|no
 also_affects: <optional>
 END
 ```
-Then `STRENGTHS:` bullets and `CHECKED_CLEAN:` bullets (category — one-line reason). Stage 2b uses `category: maintainability` and ids `ST-<seq>`.
+Then `STRENGTHS:` bullets and `CHECKED_CLEAN:` bullets (category — one-line reason). Stage 2b's ids are `ST-<seq>`.
 
 ## 8. Report
 

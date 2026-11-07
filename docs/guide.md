@@ -28,7 +28,7 @@ plugins/dimi/            (installed as a plugin; same for every repo)
   agents/        6 agents        — delegates for search, review, verification, specs, parallel work, debugging
   hooks/hooks.json               — registers the 5 hooks
   scripts/                       — 5 hook scripts (gates, context, session notes; configured via plugin options),
-                                   review helpers (review.sh: build, gates, notes, record, worklist, latest), shared lib.sh, state/ (skills' pre-computed state)
+                                   review helpers (review.sh: build, gates, notes, record, worklist, latest, sizes), decision-log.sh, shared lib.sh, state/ (skills' pre-computed state)
 templates/project-claude/        (copied into each repo; about that repo)
   .claude/settings.json          — permission allow/deny, enabledPlugins; no hooks block
   .claude/rules/                 — 4 starter files of path-scoped judgement; grows via /dimi:compound
