@@ -27,10 +27,10 @@ Subject: a repository or a path. Reader: a newcomer, a client receiving a handov
 | Shape | stats (files, languages, tests, contributors, age); top-level layout with one line per folder; a system diagram with real component names | facts block, manifests, `explore` |
 | How it runs | entry points, how to build, run and test, environments and settings that change behaviour | manifests, CI workflows, Dockerfiles, docs |
 | The main paths | two or three flows as timelines with `path:line` (the request path, the job path, the data import path) | `explore`, one call per flow |
-| Health | churn hotspots (size × commits) with what each file is and whether it is tested; largest files; duplicate implementations; TODO and skipped-test counts if the facts show them | facts block, `explore`, `grep -c` |
+| Health | churn hotspots (size × commits) with what each file is and whether it is tested; largest files; duplicate implementations; the TODO-marker and skipped-test counts from the facts block | facts block, `explore` |
 | Risks | ranked: what breaks first, what nobody understands, what has no test, what depends on a person; each with evidence and a next step | the above, plus `review-agent` or `harden-mcp` reports if present |
 | Where to start | for a newcomer: the first file to read, the test to run, the module to change first | your reading |
-| Appendix | glossary of domain terms as the code uses them; dependency list with versions from lockfiles; the footnotes of a client report | lockfiles, code |
+| Appendix | glossary of domain terms as the code uses them; dependency list with versions from lockfiles (a client report's footnote table goes to the separate internal appendix file, never here) | lockfiles, code |
 
 ## review — "render a review as a page"
 

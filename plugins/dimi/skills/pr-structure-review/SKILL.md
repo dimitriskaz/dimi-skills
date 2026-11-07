@@ -44,7 +44,7 @@ Before the lenses: is there a reframing that makes most of this change unnecessa
 - An abstraction with one implementation and no second one in sight.
 
 ### Lens 4 — Size and decomposition
-- A file that crossed `max_file_lines` in this change, or was already past it and grew, when the new code had a natural home of its own.
+- A file that crossed `max_file_lines` in this change, or was already past it and grew, when the new code had a natural home of its own. A `0 →` line for a file that existed under another name is a rewrite, not a crossing (`sizes` follows renames git detects; a heavily rewritten one it cannot): check `git log --follow` before flagging it.
 - A function that now does several unrelated jobs. Split by job; never by line count, and never into helpers whose only purpose is a shorter function.
 - A component that grew a second responsibility (data loading in a presentational component, rendering in a loader).
 

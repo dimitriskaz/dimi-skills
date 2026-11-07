@@ -1,6 +1,6 @@
 ---
 name: "pr-self-review"
-description: "Pre-commit / pre-push self-review of your working tree (or an open PR) that runs the same four-stage gate your team's reviewers use — repo-policy compliance, correctness/scalability/conventions, security/data-handling, plus agent/MCP domain reviews when they apply — and writes a reviewer-style report with Blocker / Should fix / Minor findings plus commit-message and PR-description drafts."
+description: "Pre-commit / pre-push self-review of your working tree (or an open PR) that runs the same four-stage gate your team's reviewers use — repo-policy compliance, correctness/scalability/conventions and maintainability, security/data-handling, plus agent/MCP domain reviews when they apply — and writes a reviewer-style report with Blocker / Should fix / Minor findings plus commit-message and PR-description drafts."
 argument-hint: "[#pr | branch | nothing = working tree]"
 allowed-tools: Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(grep *)
 ---
@@ -14,7 +14,7 @@ This is a **gate, not a GitHub action**. Never post reviews, comments or approva
 Four stages, in this order:
 1. **Compliance gate** (repo policy, mechanical, plus running CI's local equivalents) — section 5.
 2. **Code review** (correctness, scalability, conventions) — load and follow `pr-correctness-scalability-review`.
-   2b. **Structure review** (maintainability) — load and follow `pr-structure-review` against the same `Diff`; it returns findings in our severities and interchange format, ids `ST-`, `category: maintainability`. Skip it for a diff that is only data, docs or fixtures.
+   2b. **Structure review** (maintainability) — load and follow `pr-structure-review` against the same `Diff`; it returns findings in our severities and interchange format, ids `ST-`, `category: maintainability`. Skip it when no changed path has a source extension (only data, docs, fixtures or configuration changed).
 3. **Security & data review** — load and follow `pr-security-data-review`. If the repo has its own security-review skill, run it too against the same working tree and include its result.
 4. **Domain reviews when they apply** — if the diff touches agent/LLM code, run `/dimi:review-agent <changed paths>`; if it touches an MCP server, `/dimi:harden-mcp <path>`. Both run as forked subagents and return their report in this turn; wait for it. Fold their findings in, prefixed `RA-`/`HM-` (their check ids collide), mapping severities: Critical → Blocker; High → Should fix, promoted to Blocker when it meets a Blocker criterion in section 1; Medium → Minor, promoted to Should fix when it sits on a realistic path; Low → Minor. Their verdict "Ready with conditions" corresponds to our "Ready with notes". Do not re-derive their findings. If the diff has substantial frontend work (new or reworked screens, components or their loaders, not a copy or style tweak), load and follow `${CLAUDE_PLUGIN_ROOT}/skills/ui-states-review/SKILL.md` against the same `Diff` and fold its findings in prefixed `US-`. If one of those screens is model-backed (it renders a model's stream, shows the agent's tool calls, or asks a person to approve an action the agent proposed; a live dashboard on a WebSocket with no model behind it is not), also load `${CLAUDE_PLUGIN_ROOT}/skills/agent-ui-review/SKILL.md` for that screen and fold its findings in prefixed `AU-`. Both return findings in our severities and interchange format, so no mapping; neither repeats the other's checks. A finding `agent-ui-review` cross-references to a `review-agent` check id is reported once, on the side that should carry the fix.
 
@@ -90,7 +90,7 @@ Run `build` with the PR number appended. It writes `pr.json` and `checks.txt` in
 
 ## 4. Understand before judging
 
-Write one paragraph in your own words: what the change does, how (which layers), why the approach is or is not right. Then list **claims to verify**: from commit messages and the author's description, comments and docstrings ("read once", "only the lease prevents duplicates"), headers ("see otherModule.ts"), UI copy ("Nothing was linked"), runbooks ("grant permission X for test 4"). Every claim is checked in stages 2–3.
+Write one paragraph in your own words: what the change does, how (which layers), why the approach is or is not right. Then list **claims to verify**: from commit messages and the author's description, comments and docstrings ("read once", "only the lease prevents duplicates"), headers ("see otherModule.ts"), UI copy ("Nothing was linked"), runbooks ("grant permission X for test 4"). A performance claim ("2x faster", "no longer times out") is verified only by a measurement that answers the `debug` §6 questions (what limits it, same conditions on both sides, repeatable, the work inside the timed region); without one it is reported as unverified. Every claim is checked in stages 2–3.
 
 ## 5. Compliance gate
 
@@ -198,7 +198,7 @@ Then record it as the newest report, wherever `Out` is: `bash ${CLAUDE_PLUGIN_RO
 
 Offer to fix. Severity order; one finding per commit with the ticket key; Minors never mixed into behaviour commits. Ask the author to run `/dimi:tidy`, or follow `${CLAUDE_PLUGIN_ROOT}/skills/tidy/SKILL.md` §1–4 inline, before the commits so working notes never reach the reviewer. After fixing, re-run the gate (including local checks) and update the report in re-run mode. Commit or push only when the author says so.
 
-Then draft, ready to paste:
+Then draft, ready to paste, by the rules in `${CLAUDE_PLUGIN_ROOT}/skills/prose/SKILL.md`:
 - **Commit message(s)** in `COMMIT_FORMAT`, one per proposed commit, body listing the files and the why.
 - **PR description**: what changed and why; how it was tested (which local checks ran, which specs, N of M; what CI will add); known limitations and deferred findings with ticket references; product decisions a reviewer should confirm (defaults, visibility choices). Reviewers trust a PR more when the author has already said where the bodies are.
 

@@ -34,7 +34,11 @@ REMOTE=$(git remote get-url origin 2>/dev/null | sed -E 's#(https?://|git@)([^/:
 with_timeout 10 git fetch -q origin "$DB" >/dev/null 2>&1 || true
 BASE=
 if [ -n "$RANGE" ]; then
-  echo "- Range: $RANGE"
+  if git rev-list -n 1 "$RANGE" >/dev/null 2>&1; then echo "- Range: $RANGE"
+  else echo "- Range: $RANGE is not a valid revision range here (unknown ref or unfetched branch): fix the range before writing anything about it"; RANGE=; BAD=1; fi
+fi
+if [ -n "${BAD-}" ]; then LOG=; STAT=
+elif [ -n "$RANGE" ]; then
   LOG=$(git log --no-merges --format='%h %ad %s' --date=short "$RANGE" 2>/dev/null | cap 60)
   STAT=$(git_diff --numstat "$RANGE" 2>/dev/null)
 elif git rev-parse -q --verify "origin/$DB" >/dev/null 2>&1 && [ "$B" != "$DB" ]; then
@@ -58,7 +62,7 @@ echo "- Uncommitted: $(git status --porcelain 2>/dev/null | grep -vE -- "$LOCAL_
 # Reports other dimi skills already wrote for this checkout: the report reads them rather than redoing the work.
 R=$(cat "$T/../self-review-$REPO/LATEST" 2>/dev/null)
 if [ -f "$R" ]; then echo "- Latest self-review report: $R ($(grep -m1 '^Branch:' "$R" | cut -c1-120))"; else echo "- Latest self-review report: none"; fi
-for d in "$T/../plan-from-ticket-$REPO" "$T/../walkthrough-$REPO" "$T/../self-review-$REPO"; do
+for d in "$T/../plan-from-ticket-$REPO" "$T/../walkthrough-$REPO" "$T/../self-review-$REPO" "$T/../debug-$REPO" "$T/../report-$REPO" "$T/../tidy-$REPO"; do
   [ -d "$d" ] && block "Files in $(basename "$d")" "$(ls -t "$d" 2>/dev/null | grep -v '^LATEST$' | cap 10)"
 done
 
@@ -69,6 +73,9 @@ block "Languages (files by extension, top 12)" "$(printf '%s\n' "$FILES" | sed -
 block "Top-level layout" "$(printf '%s\n' "$FILES" | awk -F/ 'NF > 1 { print $1 "/" } NF == 1 { print $1 }' | sort | uniq -c | sort -rn | head -20 | awk '{ printf "%s (%s)\n", $2, $1 }')"
 block "Manifests and entry points" "$(printf '%s\n' "$FILES" | grep -E '(^|/)(package\.json|pyproject\.toml|requirements[^/]*\.txt|go\.mod|Cargo\.toml|pom\.xml|build\.gradle(\.kts)?|Gemfile|composer\.json|Dockerfile|docker-compose[^/]*\.ya?ml|Makefile|\.github/workflows/[^/]+|README\.md|CLAUDE\.md|AGENTS\.md)$' | cap 30)"
 echo "- Test files (by name): $(printf '%s\n' "$FILES" | grep -ciE '(^|/)(tests?|__tests__|spec|e2e)(/|$)|\.(test|spec)\.[a-z]+$|_test\.(go|py|rs)$')"
+SRCS=$(printf '%s\n' "$FILES" | grep -E '\.(ts|tsx|js|jsx|py|go|rs|java|kt|rb|php|cs|swift|scala|sql|sh|vue|svelte)$' | grep -vE '(^|/)(dist|build|vendor|node_modules|generated)/|\.min\.')
+echo "- TODO/FIXME/HACK markers in source: $(printf '%s\n' "$SRCS" | tr '\n' '\0' | xargs -0 -r grep -cE '(TODO|FIXME|HACK|XXX)[:( ]' 2>/dev/null | awk -F: '{ n += $NF } END { print n + 0 }')"
+echo "- Skipped or focused tests: $(printf '%s\n' "$SRCS" | tr '\n' '\0' | xargs -0 -r grep -cE '(^|[^A-Za-z0-9_])(it|test|describe)\.(skip|only|todo)\(|@pytest\.mark\.skip|@unittest\.skip|t\.Skip\(|xit\(|xdescribe\(' 2>/dev/null | awk -F: '{ n += $NF } END { print n + 0 }')"
 block "Churn hotspots, last 180 days (commits touching the file; size × churn is where bugs live)" \
   "$(git log --since='180 days ago' --no-merges --format= --name-only 2>/dev/null | grep . | sort | uniq -c | sort -rn | head -15 | awk '{ printf "%s %s\n", $2, $1 }')"
 block "Largest source files (lines)" "$(printf '%s\n' "$FILES" | grep -E '\.(ts|tsx|js|jsx|py|go|rs|java|kt|rb|php|cs|swift|scala|sql|sh)$' | grep -vE '(^|/)(dist|build|vendor|node_modules|generated)/|\.min\.|lock' | tr '\n' '\0' | xargs -0 -r wc -l 2>/dev/null | grep -v ' total$' | sort -rn | head -10 | awk '{ printf "%s %s\n", $2, $1 }')"

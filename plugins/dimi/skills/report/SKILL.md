@@ -16,21 +16,30 @@ Triggers: `/dimi:report`, "make a report about this ticket", "write up what I di
 
 !`bash ${CLAUDE_PLUGIN_ROOT}/scripts/state/report.sh '${user_config.default_branch}' '${user_config.ticket_regex}'`
 
-These are the numbers the report quotes (commits, files, lines, tests, languages, churn, size). Never restate a number the script did not print or a command did not output. If the subject is an explicit range, run the script again with it as the third argument.
+These are the numbers the report quotes (commits, files, lines, tests, languages, churn, size). Never restate a number the script did not print or a command did not output. If the subject is an explicit range, run the script again with it as the third argument. For a PR subject (`#42`) the branch delta above is the wrong one: build the PR's own context first, then run the facts for its range:
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/review.sh build report '' '${user_config.default_branch}' '${user_config.demo_marker}' '${user_config.demo_branch}' '${user_config.ticket_regex}' '${user_config.local_checks}' 42
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/state/report.sh '${user_config.default_branch}' '${user_config.ticket_regex}' '<Base>..<Head>'
+```
+`build` fetches the PR head, writes `pr.json`, `commits.txt` and `review.diff` into the `Out` it prints, and prints `Base` and `Head`; write those values literally into the second command. When `Head` is "not fetched", the diff came from GitHub and the file table comes from `pr.json` (`files`, `additions`, `deletions`).
 
 ## 1. Subject, kind, audience
 
 - **Subject** from `$ARGUMENTS`: a ticket key, a branch or range (`v1.4.0..HEAD`), a PR number, a path (`services/import`), or a question ("what is the state of the auth module"). Nothing given: the current branch when it is not the default branch, else the whole repository.
 - **Kind** (`--kind`, else inferred): `ticket` (a branch, key or PR: what was done and whether it is ready), `codebase` (a repo or path: what it is, how it is built, where the risk is), `review` (render an existing review report: self-review, `review-agent`, `harden-mcp`, a colleague's review), `investigation` (a bug or incident: timeline, root cause, fix, proof), `release` (a range: what shipped, what to migrate). Section lists per kind in [references/shapes.md](references/shapes.md); read the one that applies.
-- **Audience** (`--audience`, default `reviewer`): *reviewer* keeps `path:line` inline and leads with risk; *newcomer* gets vocabulary and order; *client* and *stakeholder* get behaviour, outcomes and decisions with no file paths in the body (they move to a collapsed appendix), and nothing `.claude/fde-client-profile.md` forbids. Internal customer names, incident details and secret-looking lines never appear in a client or stakeholder report.
-- **Output**: `$OUT/report-<slug>-<YYYY-MM-DD>.html`, where `$OUT` is `--out` when given, else the session's scratchpad directory if it gives one, else `<top>/../report-<repo>/` next to the checkout. Never inside the repository: Claude can load this skill on its own and must not leave a tracked file behind; the author copies it into a docs folder if the repo has that convention.
+- **Audience** (`--audience`, default `reviewer`): *reviewer* keeps `path:line` inline and leads with risk; *newcomer* gets vocabulary and order; *client* and *stakeholder* get behaviour, outcomes and decisions with no file paths anywhere in the page (every citation becomes a footnote number resolved in the separate internal appendix file), and nothing `.claude/fde-client-profile.md` forbids. Internal customer names, incident details and secret-looking lines never appear in a client or stakeholder report.
+- **Output**: one command creates the directory and the page from the template and prints the path (`report-<slug>-<YYYY-MM-DD>.html`):
+  ```bash
+  bash ${CLAUDE_PLUGIN_ROOT}/scripts/report-init.sh init '<out dir>' '<slug>'
+  ```
+  `<out dir>` is `--out` when given, else the session's scratchpad directory if it gives one, else `''` for `<top>/../report-<repo>/` next to the checkout. The script refuses a path inside the repository: Claude can load this skill on its own and must not leave a tracked file behind; the author copies the page into a docs folder if the repo has that convention. A client or stakeholder report has a second file beside it, `<same name>-appendix.md`, with the `[n]` → `path:line` table; it is internal and is not handed over, as `walkthrough` does it.
 
 ## 2. Gather, do not recall
 
 Read before writing, and keep the raw material out of this conversation:
 
-- **What other skills already produced**, listed under *Files in …* above: the latest self-review report (findings, verdict, "checked, nothing found"), the plan from `plan-from-ticket` (acceptance criteria, decisions), a walkthrough, a debug log. Reuse their findings and ids verbatim; do not re-review.
-- **The ticket or PR**: a Jira/Linear connector or `gh pr view <n> --json title,body,reviews,statusCheckRollup` when available, else ask for a paste. Acceptance criteria come from there, in the ticket's words.
+- **What other skills already produced**, listed under *Files in …* above or in the session's scratchpad directory: the latest self-review report (findings, verdict, "checked, nothing found"), the plan from `plan-from-ticket` (acceptance criteria, decisions), a walkthrough, a debug log. Reuse their findings and ids verbatim; do not re-review.
+- **The ticket or PR**: a Jira/Linear connector, or for a PR the `pr.json` that `build` wrote (title, body, reviews, checks, files, additions, deletions, commits), else ask for a paste. Acceptance criteria come from there, in the ticket's words.
 - **The code**: use the `explore` agent, one call per question (the entry point and the path through; every write and its gate; the tests that pin the behaviour; the config that changes it), asking for `path:line` for everything. For a codebase report also ask for the module boundaries, the second implementation of anything, and what the churn hotspots in the facts above actually contain.
 - **Evidence**: the commands that ran and their last lines (tests, typecheck, lint), screenshot files under the repo's evidence convention or in `$OUT`. A check that did not run is reported as not run, with the command that would run it.
 
@@ -42,7 +51,7 @@ Write the outline as a list first (section → the two or three things it must s
 
 ## 4. Build the page from the template
 
-Start from `${CLAUDE_SKILL_DIR}/references/template.html`: read it once, copy it to the output path, keep the `<style>` block and the `<script>` block as they are, and replace the content between them. The template is a complete example ticket report (fictional "ABC-123") so every component is shown in use; delete what the outline does not need.
+`init` copied `${CLAUDE_SKILL_DIR}/references/template.html` to the output path. Read the template once. Replace `<title>`, the `<meta name="description">`, and everything inside `<body>` up to the `<script>` block; keep the `<style>` and `<script>` blocks as they are. The template is a complete example ticket report (fictional "ABC-123") so every component is shown in use; delete what the outline does not need.
 
 Components and when to use them:
 
@@ -58,16 +67,16 @@ Components and when to use them:
 | `details.finding` with `data-sev` and the `.filters` buttons | findings with severity, id, where, why it matters, status; counts in the filter labels must match |
 | `.callout good|warn|crit|info` | "checked, nothing found", a risk, a decision, an unverified claim |
 | `.bars` with `--v`/`--max` | a small comparison that must be read to scale (relations per workbook, tests per module) |
-| `figure` + `.gallery` | screenshots as `data:` URIs (keep the whole file under 5 MB; downscale PNGs) or relative `img/` paths beside the HTML, with a caption that says what the picture proves |
+| `figure` + `.gallery` | screenshots copied beside the page with `bash ${CLAUDE_PLUGIN_ROOT}/scripts/report-init.sh img '<report path>' '<png>'` (it prints the `img/…` src to use) and a caption that says what the picture proves; a `data:` URI only when the page must be one file (`base64 < file.png \| tr -d '\n'`, keep the page under 5 MB) |
 | `details` in Appendix | the full file list, commands, glossary, the `path:line` footnotes of a client report, the regenerate command |
 
 Rules for the page:
 - Semantic colour means something: `good` passed or fixed, `warn` should fix or not run, `crit` blocker or failed, `info` minor or a note. Never colour for emphasis.
 - `<title>` is the name of the report; the `.crumbs` carry the kind. The TOC lists every `section id` in order and nothing else.
-- Keep the token block untouched unless the repo has a `.claude/report-theme.css`; then inline that file's contents right after the `:root` block so its tokens win (a client's colours and faces live there, never in this plugin).
+- Keep the token block untouched unless the repo has a `.claude/report-theme.css`; then inline that file's contents after the whole token block (the light `:root`, the dark media block and the `data-theme` block) so its tokens win in both themes; that file must define its colours for light and dark (a client's colours and faces live there, never in this plugin).
 - The page fetches two things at most, both optional: the fonts (system fallbacks are declared) and, only when a Mermaid block exists, the Mermaid script the template already loads (the diagram stays readable as source without it). No other scripts, no CDN CSS, no iframes, no tracking.
 - No emoji, no exclamation marks, no marketing. Present tense, plain words, one idea per sentence, by `${CLAUDE_PLUGIN_ROOT}/skills/prose/SKILL.md`. Expand an acronym the first time.
-- A client or stakeholder report has no `path:line` in the body: number them `[1]`, `[2]` and resolve them in the Appendix.
+- A client or stakeholder report has no `path:line` anywhere in the page: number them `[1]`, `[2]` and resolve them in the separate `-appendix.md` file, which stays internal.
 
 ## 5. Verify, then look once
 
@@ -76,7 +85,7 @@ grep -nE 'ABC-123|example-app|a1b2c3d|e5f6a7b|placeholder|lorem|\{\{' '<output p
 grep -oE '<li><a href="#[a-z0-9-]+"' '<output path>' | sort -u                              # every TOC target …
 grep -oE '<section id="[a-z0-9-]+"' '<output path>' | sort -u                              # … matches a section id, and vice versa
 ```
-Then re-read the page against the sources once: every `path:line` resolves at the as-of commit, every finding id exists in the report it came from, every number matches the facts block, filter counts match the findings, no customer term or secret-looking line (grep the page for `(api|secret|token|password)[_-]?(key)?\s*[:=]`). If Playwright and a browser are available, screenshot the file at 1280 and 400 px wide and look at both; otherwise open it in a browser. One pass of fixes, then stop; polish is for the reader to request.
+Then re-read the page against the sources once: every `path:line` resolves at the as-of commit, every finding id exists in the report it came from, every number matches the facts block, filter counts match the findings, no customer term or secret-looking line (grep the page for `(api|secret|token|password)[_-]?(key)?[[:space:]]*[:=]`). Then look at it once: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/report-init.sh shot '<report path>'` writes a desktop and a phone screenshot beside the page when Playwright is available (else it says to open the file in a browser); read both images. One pass of fixes, then stop; polish is for the reader to request.
 
 ## 6. Deliver
 

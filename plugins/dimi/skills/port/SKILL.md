@@ -92,6 +92,7 @@ Ask the author to run `/dimi:poc ledger <feature> in-review --pr <n>` in the dem
 Feature delta: <n> commits, <m> files · already upstream: <k> · in open PRs: <list>
 Available surface: <default branch> + PRs #a #b (integration merge: clean | conflicts: …)
 Base: <default branch | stacked on #n (retarget after merge)>
+Done check: <the checks that pass or fail on the production branch, from §5 step 1, each met | not met>
 | hunk / file | bucket | why | done via |
 Plan: <path> · Branch: <name> · PR: <url or "not opened yet">
 Ledger: <feature> → in-review (#n), `ported` after merge · demo-only remainder: …

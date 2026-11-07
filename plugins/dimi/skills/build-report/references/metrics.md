@@ -38,6 +38,21 @@ export const activeTenantsLast30d = defineMetric({
 
 `compute` is pure over its inputs, so the unit test is a fixture and a known answer. The loader (query, cache, tenant scope) is a separate function the e2e tests mock.
 
+A row-list report (the failed imports this week, the orders past SLA) is an **extract**, defined in the same registry with the same discipline:
+
+```
+name:         failedImportsLastWeek
+question:     Which imports failed last week, and why?
+columns:      import_id, tenant, started_at (tenant tz), file_name, error_code, error_message (first 200 chars)
+filters:      status = failed; started_at in [Monday 00:00, next Monday 00:00) in the tenant's time zone
+excludes:     test tenants; imports retried successfully within the window
+order:        started_at desc
+cap:          10,000 rows → partial: true, said in the file header
+source:       imports table through the tenant-scoped loader; index (tenant_id, status, started_at)
+```
+
+Its tests: a fixture with a known row set, the window boundary, the exclusion, and the cap. The CSV or email job streams it; the screen's drill-down shows the same rows.
+
 ## 2. Chart by question
 
 | The question is about | Use | Not |

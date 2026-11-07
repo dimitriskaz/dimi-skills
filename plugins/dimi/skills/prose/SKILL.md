@@ -20,7 +20,7 @@ The reader is busy, knows the domain, and did not watch the work. Every sentence
 
 **Punctuation and layout.** Sentence case headings. No em dashes or en dashes as asides inside a sentence; use a comma or a full stop. A dash as a separator between a name and its qualifier (a heading like `Import flow — how it works`, a meta line, a table cell) is fine. No decorative bold on every noun; bold at most the first words of a bullet. No emoji. Straight quotes. A bullet list only for parallel items, one or two sentences each; a single point stays in prose. Headers only when the text is long enough to need navigation.
 
-**Numbers and names.** Expand an acronym the first time. A figure that changes what the reader does goes on its own line or in a small table; a figure that does not is cut. Code identifiers only when the reader must go there, in backticks, at most one per sentence.
+**Numbers and names.** Expand an acronym the first time. A figure that changes what the reader does goes on its own line or in a small table; a figure that does not is cut. In running prose, code identifiers only when the reader must go there, in backticks, at most one per sentence; evidence lines are different (a finding's `where:`, a `path:line` citation, a commit, a test name) and carry as many as the claim needs.
 
 **No model voice.** No "Certainly", "Great question", "I hope this helps", no apologies, no asides about one's own reasoning. A finding states what the code does, what happens, and the fix.
 

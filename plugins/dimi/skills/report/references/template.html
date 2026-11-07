@@ -114,7 +114,7 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 0; }
 .stat .v { font-family: var(--font-display); font-size: 1.7rem; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .stat .k { font-size: .8rem; color: var(--muted); }
 .stat .d { font-size: .8rem; }
-.stat .d.good { color: var(--good); } .stat .d.crit { color: var(--crit); }   /* the author picks the meaning; up is not always good */
+.stat .d.good { color: var(--good); } .stat .d.warn { color: var(--warn); } .stat .d.crit { color: var(--crit); } .stat .d.info { color: var(--info); }   /* the author picks the meaning; up is not always good */
 
 /* ---- layout: TOC + article ------------------------------------------------------------------ */
 .page { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr; gap: 32px; padding-top: 24px; }
@@ -422,7 +422,7 @@ footer { max-width: 1200px; margin: 48px auto 0; padding-top: 16px; border-top: 
       </ul>
     </section>
 
-    <!-- ======================= APPENDIX: collapsed detail; the full file list, commands, glossary ======================= -->
+    <!-- ======================= APPENDIX: collapsed detail; the full file list, commands, glossary. A client report's path:line footnotes go to the separate -appendix.md file, never here: collapsed sections print in full. ======================= -->
     <section id="appendix">
       <h2>Appendix</h2>
       <details>

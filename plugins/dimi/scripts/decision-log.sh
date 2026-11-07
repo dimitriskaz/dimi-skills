@@ -2,7 +2,8 @@
 # Append-only decision log for the decision-log skill, one TSV row per decision, outside the working tree.
 #   decision-log.sh start <goal and contract>            a run's first row
 #   decision-log.sh add <phase> <decision> <why> <evidence> <result>
-#   decision-log.sh read [n]                              the last n rows (default all), aligned
+#   decision-log.sh done <met|not met: why> <evidence>    the run's closing row (phase done)
+#   decision-log.sh read [n|all]                          this run's rows (since the last start row), the last n rows, or every row
 #   decision-log.sh path                                  the file's path
 #   decision-log.sh commit <dir in the repo>              copy it into the repository (the author commits)
 # The file is <top>/.claude/.cache/decisions/<project key>.tsv: the skill runs this from the model's shell, which has no
@@ -21,13 +22,15 @@ row() {
 }
 case "${1-}" in
   start) row start "${2-}" "run start on $(branch_name) at $(git rev-parse --short HEAD 2>/dev/null)" "" open; echo "$F" ;;
+  done) [ $# -ge 3 ] || { echo "usage: decision-log.sh done '<met | not met: why>' <evidence>" >&2; exit 2; }; row done "done check: $2" "" "$3" "$(case "$2" in met*) echo green ;; *) echo open ;; esac)"; echo "logged row $(($(grep -c '' "$F") - 1))" ;;
   add) [ $# -ge 6 ] || { echo "usage: decision-log.sh add <phase> <decision> <why> <evidence> <result>" >&2; exit 2; }; row "$2" "$3" "$4" "$5" "$6"; echo "logged row $(($(grep -c '' "$F") - 1))" ;;
   read) [ -f "$F" ] || { echo "no decision log for this repository"; exit 0; }
-        case "${2-}" in ''|*[!0-9]*) set -- read ;; esac
-        if command -v column >/dev/null 2>&1; then { head -1 "$F"; tail -n "${2:-+2}" "$F" | grep -v "^ts$(printf '\t')"; } | column -s "$(printf '\t')" -t
-        else head -1 "$F"; tail -n "${2:-+2}" "$F" | grep -v "^ts$(printf '\t')"; fi ;;
+        # default: this run, i.e. the rows from the last start row; a number: the last n rows; all: everything
+        case "${2-}" in all) SEL='NR > 1' ;; ''|*[!0-9]*) SEL='last' ;; *) SEL="NR > 1 && NR > $(grep -c '' "$F") - $2" ;; esac
+        pick() { if [ "$SEL" = last ]; then awk -F'\t' 'NR == 1 { next } $2 == "start" { buf = "" } { buf = buf $0 "\n" } END { printf "%s", buf }' "$F"; else awk "$SEL" "$F"; fi; }
+        if command -v column >/dev/null 2>&1; then { head -1 "$F"; pick; } | column -s "$(printf '\t')" -t; else head -1 "$F"; pick; fi ;;
   path) echo "$F" ;;
   commit) [ -f "$F" ] || { echo "no decision log to commit" >&2; exit 1; }
           D="${2:?usage: decision-log.sh commit <dir in the repo>}"; case "$D" in /*) ;; *) D="$T/$D" ;; esac; mkdir -p "$D" && cp "$F" "$D/decisions-$(safe_name "$(branch_name)").tsv" && echo "copied to $D/decisions-$(safe_name "$(branch_name)").tsv (stage and commit it yourself)" ;;
-  *) echo "usage: decision-log.sh start|add|read|path|commit … (see the header of this file)" >&2; exit 2 ;;
+  *) echo "usage: decision-log.sh start|add|done|read|path|commit … (see the header of this file)" >&2; exit 2 ;;
 esac

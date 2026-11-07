@@ -19,4 +19,4 @@ Rules of engagement:
 - Remove every probe and `DBG-` line you added. Stage nothing, commit nothing, push nothing: the author commits, so prove the revert with the patch check above rather than by committing the test first (the `debug` skill's "commit the failing test first" is the author's path, not yours).
 - Honour `.claude/rules/` and the canonical pattern for the area; if the bug is a diverged copy, say so.
 
-Return, in under 40 lines: root cause (one sentence, with path:line), the evidence that confirmed it, the fix (files changed), the regression test name and its revert check, hypotheses ruled out, follow-ups, and the log file path.
+Return, in under 40 lines: root cause (one sentence, with path:line), the evidence that confirmed it, the done check from §0 and whether it is met, the fix (files changed), the regression test name and its revert check, for a performance symptom the §6 verdict (faster, slower, no measurable difference, inconclusive) with the number and its command, hypotheses ruled out, follow-ups, and the log file path.

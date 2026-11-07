@@ -72,7 +72,7 @@ Before pushing, run `/dimi:pr-self-review` in local mode: its re-run mode follow
 
 ## 6. Draft the replies
 
-One reply per point, short and specific, written to `<Out>/replies.md` for you to paste:
+One reply per point, short and specific, by the rules in `${CLAUDE_PLUGIN_ROOT}/skills/prose/SKILL.md`, written to `<Out>/replies.md` for you to paste:
 - Fixed: `Fixed in <sha>: <what changed>. Test: <name>.`
 - Partly: `Right about X; Y is actually <evidence>. Fixed X in <sha>.`
 - Disagree: `I don't think this applies: <evidence>. Happy to change if I'm missing something.`
