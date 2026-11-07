@@ -1,6 +1,6 @@
 ---
 name: report
-description: Generate a beautiful, self-contained HTML report about a ticket, a branch, a codebase, a review, an investigation or a release — verdict first, what changed, how it works, how it was tested, findings, risks — with code references, a diagram and screenshots, built from verified facts (git, the code, the reports other dimi skills wrote) and styled by a tested template that reads offline, in light and dark, and prints to PDF. Use when handing work over, summarising a ticket for a reviewer or a client, documenting what a codebase is and where its risks are, or turning a review or a debugging session into something a stakeholder can read.
+description: Generate a self-contained HTML report about a ticket, a branch, a codebase, a review, an investigation or a release — verdict first, what changed, how it works, how it was tested, findings, risks — with code references, a diagram and screenshots, built from verified facts (git, the code, the reports other dimi skills wrote) and styled by a tested template that reads offline, in light and dark, and prints to PDF. Use when handing work over, summarising a ticket for a reviewer or a client, documenting what a codebase is and where its risks are, or turning a review or a debugging session into something a stakeholder can read.
 when_to_use: "Triggers: /dimi:report, \"make a report about this ticket\", \"write up what I did on this branch\", \"generate an HTML report\", \"summarise this codebase for the client\", \"turn the review into a report\", \"a nice page I can send to the team\", \"document this investigation\"."
 argument-hint: "[ticket key | path | range | #pr | question; --kind ticket|codebase|review|investigation|release --audience reviewer|newcomer|client|stakeholder --out <dir>]"
 allowed-tools: Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(grep *)
@@ -72,7 +72,7 @@ Rules for the page:
 ## 5. Verify, then look once
 
 ```bash
-grep -nE 'ABC-123|example-app|a1b2c3d|placeholder|lorem|TODO|\{\{' '<output path>'      # must print nothing: template examples left in
+grep -nE 'ABC-123|example-app|a1b2c3d|e5f6a7b|placeholder|lorem|\{\{' '<output path>'   # must print nothing: template examples left in
 grep -oE '<li><a href="#[a-z0-9-]+"' '<output path>' | sort -u                              # every TOC target …
 grep -oE '<section id="[a-z0-9-]+"' '<output path>' | sort -u                              # … matches a section id, and vice versa
 ```

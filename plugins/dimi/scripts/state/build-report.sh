@@ -10,16 +10,16 @@ block() { echo "- $1:"; if [ -n "$2" ]; then printf '%s\n' "$2" | sed 's/^/    /
 T=$(top)
 if [ -z "$T" ]; then echo "- Repository: not a git repository; read the manifests by hand"; exit 0; fi
 cd "$T" || exit 0
-FILES=$(git ls-files 2>/dev/null)
+FILES=$(git -c core.quotePath=false ls-files 2>/dev/null)
 SRC=$(printf '%s\n' "$FILES" | grep -vE '(^|/)(node_modules|dist|build|vendor|\.next|coverage|generated)/|\.(lock|min\.js|map|snap)$|lock\.(json|yaml)$')
 
 echo "- Repository: $(basename "$T") · HEAD: $(git rev-parse --short HEAD 2>/dev/null || echo none) · branch: $(branch_name)"
 block "Manifests" "$(printf '%s\n' "$FILES" | grep -E '(^|/)(package\.json|pyproject\.toml|requirements[^/]*\.txt|go\.mod|Cargo\.toml|pom\.xml|build\.gradle(\.kts)?|Gemfile|composer\.json)$' | cap 20)"
 
-# Dependencies that matter for a report: charts, tables, dates, data layer, exports. Read from lockfiles and manifests
-# (names only), so a library that is already paid for is reused.
-DEPS=$( { printf '%s\n' "$FILES" | grep -E '(^|/)(package-lock\.json|pnpm-lock\.yaml|yarn\.lock|package\.json|pyproject\.toml|requirements[^/]*\.txt|poetry\.lock|uv\.lock|go\.mod|Cargo\.toml|Gemfile(\.lock)?)$' | head -40 | xargs -r cat 2>/dev/null; } | tr -d '"' )
-match_deps() { printf '%s\n' "$DEPS" | grep -oiE -- "$1" | tr 'A-Z' 'a-z' | sed -E 's/^[^a-z@]+//; s/[^a-z0-9/.-]+$//' | sort -u | tr '\n' ' '; }
+# Dependencies that matter for a report: charts, tables, dates, data layer, exports. Read from the manifests only
+# (names only): a lockfile would also list transitive packages, which are not the repository's choice.
+DEPS=$( { printf '%s\n' "$FILES" | grep -E '(^|/)(package\.json|pyproject\.toml|requirements[^/]*\.txt|go\.mod|Cargo\.toml|Gemfile|composer\.json)$' | head -40 | tr '\n' '\0' | xargs -0 -r cat 2>/dev/null; } | tr -d '"' )
+match_deps() { local m; m=$(printf '%s\n' "$DEPS" | grep -oiE -- "$1" | tr 'A-Z' 'a-z' | sed -E 's/^[^a-z@]+//; s/[^a-z0-9/.-]+$//' | sort -u | tr '\n' ' '); printf '%s' "${m:-none found}"; }
 echo "- Chart libraries: $(match_deps '(^|[^a-z0-9-])(recharts|chart\.js|react-chartjs-2|echarts|echarts-for-react|@nivo/[a-z-]+|victory|visx|@visx/[a-z-]+|d3|plotly(\.js|-js)?|apexcharts|highcharts|@mui/x-charts|@tremor/react|vega(-lite)?|observablehq/plot|lightweight-charts|matplotlib|plotly|altair|bokeh|seaborn|streamlit|dash|gradio|panel)([^a-z0-9-]|$)' | sed 's/^ *//')"
 echo "- Table and grid libraries: $(match_deps '(^|[^a-z0-9-])(@tanstack/react-table|@tanstack/table-core|ag-grid-[a-z]+|@mui/x-data-grid|react-data-grid|handsontable|@glideapps/glide-data-grid|mantine-react-table|material-react-table)([^a-z0-9-]|$)')"
 echo "- Component libraries and styling: $(match_deps '(^|[^a-z0-9-])(@mui/material|@mantine/core|@chakra-ui/react|antd|@radix-ui/[a-z-]+|@headlessui/react|@shadcn/ui|shadcn|tailwindcss|styled-components|@emotion/react|@vanilla-extract/css|@stitches/react|bootstrap|primereact|@fluentui/react|@carbon/react)([^a-z0-9-]|$)')"
@@ -31,17 +31,17 @@ block "Dashboard-as-code and BI definitions already in the repo" "$(printf '%s\n
 block "Existing metric, report, dashboard or analytics code (reuse before writing a second definition)" \
   "$(printf '%s\n' "$SRC" | grep -E '\.(ts|tsx|js|jsx|py|go|rs|rb|sql|prisma|vue|svelte)$' | grep -iE '(^|/|[-_.])(metrics?|reports?|reporting|dashboards?|analytics|insights?|stats|statistics|kpis?|charts?|summary|summaries|rollups?|aggregates?|aggregations?|materiali[sz]ed)([-_.]|/|$)' | grep -viE '(^|/)(test|spec|e2e|__tests__)' | cap 30)"
 block "Database views, rollups and migrations that aggregate" \
-  "$(printf '%s\n' "$SRC" | grep -E '\.(sql|prisma)$|(^|/)migrations?/' | xargs -r grep -liE 'materialized view|create view|group by|rollup|summary' 2>/dev/null | cap 15)"
+  "$(printf '%s\n' "$SRC" | grep -E '\.(sql|prisma)$|(^|/)migrations?/' | tr '\n' '\0' | xargs -0 -r grep -liE 'materialized view|create view|group by|rollup|summary' 2>/dev/null | cap 15)"
 block "Design tokens and theme files" "$(printf '%s\n' "$SRC" | grep -iE '(^|/)[^/]*(tokens?|theme|palette|colou?rs?)[^/]*\.(ts|tsx|js|css|scss|json)$|tailwind\.config\.[a-z]+$' | cap 15)"
 block "Shared UI blocks (tables, cards, charts, empty and error states)" \
   "$(printf '%s\n' "$SRC" | grep -iE '(^|/)(components?|ui|design-system|packages/ui)/[^/]*/?[^/]*(table|card|chart|empty|error|skeleton|spinner|banner|stat|tile|kpi|panel|drawer|filter|date-?range|pagination)[^/]*\.(tsx|jsx|vue|svelte)$' | cap 25)"
 block "Tenant, permission and auth helpers (every query must go through one)" \
-  "$(printf '%s\n' "$SRC" | grep -E '\.(ts|js|py|go|rb)$' | grep -viE '(^|/)(test|spec|e2e|__tests__)' | xargs -r grep -lE 'tenant(Id|_id)|org(anization)?(Id|_id)|workspace(Id|_id)|requirePermission|hasPermission|can\(|authorize|@permission_required|IsAuthenticated|row.?level.?security|RLS' 2>/dev/null | cap 15)"
+  "$(printf '%s\n' "$SRC" | grep -E '\.(ts|js|py|go|rb)$' | grep -viE '(^|/)(test|spec|e2e|__tests__)' | tr '\n' '\0' | xargs -0 -r grep -lE 'tenant(Id|_id)|org(anization)?(Id|_id)|workspace(Id|_id)|requirePermission|hasPermission|can\(|authorize|@permission_required|IsAuthenticated|row.?level.?security|RLS' 2>/dev/null | cap 15)"
 block "Routes, pages and API handlers that already list or aggregate" \
-  "$(printf '%s\n' "$SRC" | grep -iE '(^|/)(app|pages|routes|api|views|controllers|handlers)/.*\b(list|index|summary|overview|stats|report|dashboard|export)\b.*\.(tsx|ts|js|py|go|rb)$' | cap 20)"
+  "$(printf '%s\n' "$SRC" | grep -iE '(^|/)(app|pages|routes|api|views|controllers|handlers)/.*(^|[^A-Za-z0-9_])(list|index|summary|overview|stats|report|dashboard|export)([^A-Za-z0-9_]|$).*\.(tsx|ts|js|py|go|rb)$' | cap 20)"
 block "Feature flags and settings" "$(printf '%s\n' "$SRC" | grep -iE '(^|/)[^/]*(flags?|features?|settings|config)[^/]*\.(ts|json|ya?ml|py|toml)$' | grep -viE 'tsconfig|eslint|prettier|jest|vite|next\.config|tailwind' | cap 10)"
 block "SCALE line and data rules (CLAUDE.md, AGENTS.md, .claude/rules/)" \
-  "$(grep -rnE '^SCALE|^\s*-?\s*SCALE\s*=' CLAUDE.md AGENTS.md .claude/rules 2>/dev/null | cut -c1-200 | cap 5; ls .claude/rules/*.md 2>/dev/null)"
+  "$(grep -rnE '^SCALE|^[[:space:]]*-?[[:space:]]*SCALE[[:space:]]*=' CLAUDE.md AGENTS.md .claude/rules 2>/dev/null | cut -c1-200 | cap 5; ls .claude/rules/*.md 2>/dev/null)"
 block "Test runners and e2e" "$(printf '%s\n' "$FILES" | grep -E '(^|/)(jest|vitest|playwright|cypress|pytest|karma)\.config\.[a-z]+$|(^|/)(pytest\.ini|conftest\.py|tox\.ini)$' | cap 10)"
 echo "- Test files (by name): $(printf '%s\n' "$SRC" | grep -ciE '(^|/)(tests?|__tests__|spec|e2e)(/|$)|\.(test|spec)\.[a-z]+$|_test\.(go|py|rs)$')"
 block "Fixtures and seed data (known answers for metric tests)" "$(printf '%s\n' "$SRC" | grep -iE '(^|/)(fixtures?|seeds?|factories|__fixtures__|testdata)/' | cap 10)"

@@ -28,7 +28,7 @@ if [ -n "$TR" ] && valid_ere "$TR"; then
 else
   echo "- Ticket key: ticket regex disabled or invalid"
 fi
-echo "- Remote: $(git remote get-url origin 2>/dev/null | sed -E 's#(https?://|git@)([^/:]+)[:/]#\2/#; s#\.git$##' || echo none)"
+REMOTE=$(git remote get-url origin 2>/dev/null | sed -E 's#(https?://|git@)([^/:]+)[:/]#\2/#; s#\.git$##'); echo "- Remote: ${REMOTE:-none}"
 
 # The delta: an explicit range, else this branch against the default branch (merge base), else nothing.
 with_timeout 10 git fetch -q origin "$DB" >/dev/null 2>&1 || true
@@ -63,7 +63,7 @@ for d in "$T/../plan-from-ticket-$REPO" "$T/../walkthrough-$REPO" "$T/../self-re
 done
 
 # Codebase shape, for a codebase report: languages by file count, size, tests, manifests, churn hotspots.
-FILES=$(git ls-files 2>/dev/null)
+FILES=$(git -c core.quotePath=false ls-files 2>/dev/null)
 echo "- Tracked files: $(printf '%s\n' "$FILES" | grep -c .)"
 block "Languages (files by extension, top 12)" "$(printf '%s\n' "$FILES" | sed -nE 's/.*\.([A-Za-z0-9]+)$/\1/p' | tr 'A-Z' 'a-z' | sort | uniq -c | sort -rn | head -12 | awk '{ printf "%s %s\n", $2, $1 }')"
 block "Top-level layout" "$(printf '%s\n' "$FILES" | awk -F/ 'NF > 1 { print $1 "/" } NF == 1 { print $1 }' | sort | uniq -c | sort -rn | head -20 | awk '{ printf "%s (%s)\n", $2, $1 }')"
@@ -71,10 +71,10 @@ block "Manifests and entry points" "$(printf '%s\n' "$FILES" | grep -E '(^|/)(pa
 echo "- Test files (by name): $(printf '%s\n' "$FILES" | grep -ciE '(^|/)(tests?|__tests__|spec|e2e)(/|$)|\.(test|spec)\.[a-z]+$|_test\.(go|py|rs)$')"
 block "Churn hotspots, last 180 days (commits touching the file; size × churn is where bugs live)" \
   "$(git log --since='180 days ago' --no-merges --format= --name-only 2>/dev/null | grep . | sort | uniq -c | sort -rn | head -15 | awk '{ printf "%s %s\n", $2, $1 }')"
-block "Largest source files (lines)" "$(printf '%s\n' "$FILES" | grep -E '\.(ts|tsx|js|jsx|py|go|rs|java|kt|rb|php|cs|swift|scala|sql|sh)$' | grep -vE '(^|/)(dist|build|vendor|node_modules|generated)/|\.min\.|lock' | xargs -r wc -l 2>/dev/null | grep -v ' total$' | sort -rn | head -10 | awk '{ printf "%s %s\n", $2, $1 }')"
+block "Largest source files (lines)" "$(printf '%s\n' "$FILES" | grep -E '\.(ts|tsx|js|jsx|py|go|rs|java|kt|rb|php|cs|swift|scala|sql|sh)$' | grep -vE '(^|/)(dist|build|vendor|node_modules|generated)/|\.min\.|lock' | tr '\n' '\0' | xargs -0 -r wc -l 2>/dev/null | grep -v ' total$' | sort -rn | head -10 | awk '{ printf "%s %s\n", $2, $1 }')"
 # git log, not shortlog: shortlog reads stdin when it is not a terminal and hangs under the skill injection.
 echo "- Contributors, last 180 days: $(git log --since='180 days ago' --no-merges --format=%ae 2>/dev/null | sort -u | wc -l | tr -d ' ')"
-echo "- First and last commit: $(git log --reverse --format=%ad --date=short 2>/dev/null | head -1 || echo none) → $(git log -1 --format=%ad --date=short 2>/dev/null || echo none)"
+FIRST=$(git log --reverse --format=%ad --date=short 2>/dev/null | head -1); LAST=$(git log -1 --format=%ad --date=short 2>/dev/null); echo "- First and last commit: ${FIRST:-none} → ${LAST:-none}"
 
 # Client profile: decides what a client-facing report may show.
 p="$T/.claude/fde-client-profile.md"
