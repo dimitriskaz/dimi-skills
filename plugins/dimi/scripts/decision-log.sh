@@ -5,14 +5,15 @@
 #   decision-log.sh read [n]                              the last n rows (default all), aligned
 #   decision-log.sh path                                  the file's path
 #   decision-log.sh commit <dir in the repo>              copy it into the repository (the author commits)
-# The file is ${CLAUDE_PLUGIN_DATA:-<top>/.claude/.cache}/decisions/<project key>.tsv.
+# The file is <top>/.claude/.cache/decisions/<project key>.tsv: the skill runs this from the model's shell, which has no
+# CLAUDE_PLUGIN_DATA, and the session banner (a hook) reads the same fixed path; LOCAL_STATE_RE keeps it out of every diff.
 . "$(dirname "$0")/lib.sh"
 T=$(top) || { echo "not a git repository" >&2; exit 1; }
 cd "$T" || exit 1
-F="${CLAUDE_PLUGIN_DATA:-$T/.claude/.cache}/decisions/$(project_key).tsv"
+F="$T/.claude/.cache/decisions/$(project_key).tsv"
 
 # cell <text>: one TSV cell: tabs and newlines become spaces; a leading = + - @ (a spreadsheet formula) is quoted.
-cell() { printf '%s' "$1" | tr '\t\n\r' '   ' | sed -E "s/^([=+@-])/'\1/"; }
+cell() { [ -n "$1" ] || { printf -- '-'; return; }; printf '%s' "$1" | tr '\t\n\r' '   ' | sed -E "s/^([=+@-])/'\1/"; }
 row() {
   mkdir -p "$(dirname "$F")" || exit 1
   [ -s "$F" ] || printf 'ts\tphase\tdecision\twhy\tevidence\tresult\n' > "$F"
@@ -22,6 +23,7 @@ case "${1-}" in
   start) row start "${2-}" "run start on $(branch_name) at $(git rev-parse --short HEAD 2>/dev/null)" "" open; echo "$F" ;;
   add) [ $# -ge 6 ] || { echo "usage: decision-log.sh add <phase> <decision> <why> <evidence> <result>" >&2; exit 2; }; row "$2" "$3" "$4" "$5" "$6"; echo "logged row $(($(grep -c '' "$F") - 1))" ;;
   read) [ -f "$F" ] || { echo "no decision log for this repository"; exit 0; }
+        case "${2-}" in ''|*[!0-9]*) set -- read ;; esac
         if command -v column >/dev/null 2>&1; then { head -1 "$F"; tail -n "${2:-+2}" "$F" | grep -v "^ts$(printf '\t')"; } | column -s "$(printf '\t')" -t
         else head -1 "$F"; tail -n "${2:-+2}" "$F" | grep -v "^ts$(printf '\t')"; fi ;;
   path) echo "$F" ;;

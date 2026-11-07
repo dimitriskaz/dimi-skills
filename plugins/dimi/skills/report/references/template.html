@@ -114,7 +114,7 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 0; }
 .stat .v { font-family: var(--font-display); font-size: 1.7rem; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .stat .k { font-size: .8rem; color: var(--muted); }
 .stat .d { font-size: .8rem; }
-.stat .d.up { color: var(--good); } .stat .d.down { color: var(--crit); }
+.stat .d.good { color: var(--good); } .stat .d.crit { color: var(--crit); }   /* the author picks the meaning; up is not always good */
 
 /* ---- layout: TOC + article ------------------------------------------------------------------ */
 .page { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr; gap: 32px; padding-top: 24px; }
@@ -168,15 +168,17 @@ td code { white-space: nowrap; }
 .filters button { font: inherit; font-size: .8rem; padding: 4px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); cursor: pointer; }
 .filters button[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .finding { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
-.finding summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: auto auto 1fr; gap: 10px; align-items: baseline; padding: 10px 14px; }
+.finding summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: auto auto 1fr auto; gap: 10px; align-items: baseline; padding: 10px 14px; }
 .finding summary::-webkit-details-marker { display: none; }
+.finding summary::after { content: "+"; color: var(--muted); font-family: var(--font-mono); justify-self: end; grid-column: -1; }
+.finding[open] summary::after { content: "\2212"; }
 .finding summary .id { font-family: var(--font-mono); font-size: .8rem; color: var(--muted); }
 .finding summary .h { font-weight: 500; min-width: 0; }
 .finding[open] summary { border-bottom: 1px solid var(--line); }
 .finding .body { padding: 12px 14px 14px; display: grid; gap: 10px; font-size: .95rem; }
 .finding .body dl.kv { font-size: .9rem; }
 .finding[hidden] { display: none; }
-@media (max-width: 560px) { .finding summary { grid-template-columns: auto 1fr; } .finding summary .h { grid-column: 1 / -1; } }
+@media (max-width: 560px) { .finding summary { grid-template-columns: auto 1fr auto; } .finding summary .h { grid-column: 1 / -1; } }
 
 /* ---- timeline / path ------------------------------------------------------------------------- */
 .timeline { list-style: none; padding: 0; display: grid; gap: 0; max-width: var(--measure); }
@@ -225,8 +227,7 @@ footer { max-width: 1200px; margin: 48px auto 0; padding-top: 16px; border-top: 
   .page { display: block; }
   section { break-inside: avoid-page; }
   h2 { break-after: avoid; }
-  details { display: block; } details > summary { list-style: none; } details:not([open]) > .body { display: grid; }
-  .finding .body { display: grid !important; }
+  details > summary { list-style: none; }   /* the script opens every details before printing; a closed one prints nothing */
   a { color: inherit; } a[href^="http"]::after { content: " (" attr(href) ")"; font-size: .85em; color: #555; }
   .tbl, .code, figure { break-inside: avoid; }
 }
@@ -241,7 +242,7 @@ footer { max-width: 1200px; margin: 48px auto 0; padding-top: 16px; border-top: 
     <div class="crumbs eyebrow">
       <span>Ticket report</span><span class="sep">/</span><span>example-app</span><span class="sep">/</span><span>feat/ABC-123-import-links</span>
     </div>
-    <button class="theme-toggle" type="button" id="theme-toggle" aria-label="Switch colour theme">Theme: auto</button>
+    <button class="theme-toggle" type="button" id="theme-toggle">Theme: auto</button>
   </div>
   <h1>Spreadsheet import keeps relationships</h1>
   <p class="lede">Imported workbooks now preserve links between sheets instead of flattening them. Six commits, two services touched, one migration. Ready to merge once the backfill job is scheduled.</p>
@@ -272,14 +273,14 @@ footer { max-width: 1200px; margin: 48px auto 0; padding-top: 16px; border-top: 
     <!-- ======================= SUMMARY: verdict, then stats only if numbers are the point ======================= -->
     <section id="summary">
       <h2>Summary</h2>
-      <div class="verdict good" role="status">
+      <div class="verdict good">
         <span class="label">Ready with notes</span>
         <div>Behaviour matches the acceptance criteria; the self-review found no Blockers. One Should-fix (idempotency of the backfill) is fixed in <code>e5f6a7b</code>. Schedule the backfill before enabling the flag for tenants with existing imports.</div>
       </div>
       <div class="stats">
         <div class="stat"><span class="v num">6</span><span class="k">commits</span></div>
         <div class="stat"><span class="v num">14</span><span class="k">files changed</span><span class="d"><span style="color:var(--added)">+412</span> / <span style="color:var(--removed)">−96</span></span></div>
-        <div class="stat"><span class="v num">9</span><span class="k">tests added</span><span class="d up">all green</span></div>
+        <div class="stat"><span class="v num">9</span><span class="k">tests added</span><span class="d good">all green</span></div>
         <div class="stat"><span class="v num">0</span><span class="k">open blockers</span></div>
       </div>
       <p>The import pipeline previously wrote every sheet as an independent table, so a workbook with lookups between sheets lost those lookups. The change records the relationship at parse time, stores it beside the table, and the preview shows which columns became links.</p>
@@ -408,7 +409,7 @@ footer { max-width: 1200px; margin: 48px auto 0; padding-top: 16px; border-top: 
     <section id="risks">
       <h2>Risks and follow-ups</h2>
       <div class="callout warn"><div class="t">Backfill not run at scale</div><div>The job was tested on 40 imports. A tenant with 2,000 imports will run it for about 15 minutes; schedule it off-peak and watch the queue depth.</div></div>
-      <div class="bars" role="img" aria-label="Relations per workbook in the fixture set">
+      <div class="bars" aria-label="Relations per workbook in the fixture set">
         <!-- --v is the value, --max the largest value: the bar scales to it -->
         <span class="k">small (5 sheets)</span><span class="b"><i style="--v:3;--max:120"></i></span><span class="n">3</span>
         <span class="k">typical (18 sheets)</span><span class="b"><i style="--v:27;--max:120"></i></span><span class="n">27</span>
@@ -487,17 +488,28 @@ footer { max-width: 1200px; margin: 48px auto 0; padding-top: 16px; border-top: 
     });
   });
 
-  // Mermaid, only if a block exists and the reader is online; the source stays visible otherwise.
-  if (document.querySelector('pre.mermaid')) {
+  // Mermaid, only when a block exists. The script is fetched from a CDN; when that fails (offline), the source text stays visible.
+  var blocks = Array.prototype.slice.call(document.querySelectorAll('pre.mermaid'));
+  function isDark() { return root.getAttribute('data-theme') === 'dark' || (!root.getAttribute('data-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches); }
+  function renderMermaid() {
+    if (!window.mermaid) return;
+    blocks.forEach(function (el) { if (el.dataset.src === undefined) el.dataset.src = el.textContent; el.removeAttribute('data-processed'); el.textContent = el.dataset.src; });
+    window.mermaid.initialize({ startOnLoad: false, theme: isDark() ? 'dark' : 'neutral', securityLevel: 'strict' });
+    window.mermaid.run({ nodes: blocks });
+  }
+  if (blocks.length) {
     var s = document.createElement('script');
     s.src = 'https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.4.1/mermaid.min.js';
-    s.onload = function () {
-      var dark = root.getAttribute('data-theme') === 'dark' || (!root.getAttribute('data-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
-      window.mermaid.initialize({ startOnLoad: false, theme: dark ? 'dark' : 'neutral', securityLevel: 'strict' });
-      window.mermaid.run({ querySelector: 'pre.mermaid' });
-    };
+    s.onload = renderMermaid;
     document.head.appendChild(s);
+    if (btn) btn.addEventListener('click', renderMermaid);
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', renderMermaid);
   }
+
+  // Print: a closed <details> prints nothing, so open them all for the print and restore afterwards.
+  var closed = [];
+  window.addEventListener('beforeprint', function () { closed = Array.prototype.filter.call(document.querySelectorAll('details'), function (d) { return !d.open; }); closed.forEach(function (d) { d.open = true; }); });
+  window.addEventListener('afterprint', function () { closed.forEach(function (d) { d.open = false; }); closed = []; });
 })();
 </script>
 </body>

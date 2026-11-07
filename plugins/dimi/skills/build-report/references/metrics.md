@@ -31,7 +31,7 @@ export const activeTenantsLast30d = defineMetric({
   compute: (rows: DailyTenantActivity[], win: Window): MetricValue => {
     const inWin = rows.filter(r => win.contains(r.day));           // boundary rule lives in Window, tested once
     const partial = !win.isClosed() || rows.some(r => r.capped);
-    return { value: new Set(inWin.map(r => r.tenantId)).size, partial, asOf: maxBy(inWin, 'computedAt') };
+    return { value: new Set(inWin.map(r => r.tenantId)).size, partial, asOf: maxBy(inWin, 'computedAt')?.computedAt ?? null };
   },
 });
 ```

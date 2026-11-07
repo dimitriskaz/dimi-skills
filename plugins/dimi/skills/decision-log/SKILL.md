@@ -8,7 +8,7 @@ allowed-tools: Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/*)
 
 # Decision log
 
-A long run is only trustworthy if someone can check it afterwards without reading the whole transcript. The log is one TSV row per decision: when, which phase, what was decided, why, a pointer that proves it, and the result. It is append-only; a mistake is corrected by a new row that supersedes the old one, never by editing history.
+A long run is only trustworthy if someone can check it afterwards without reading the whole transcript. This skill stays model-invocable on purpose, although it writes files: an unattended run must be able to load it, and everything it writes stays under `.claude/.cache/` unless the author runs `commit`. The log is one TSV row per decision: when, which phase, what was decided, why, a pointer that proves it, and the result. It is append-only; a mistake is corrected by a new row that supersedes the old one, never by editing history.
 
 ## Before an unattended run: the contract
 
@@ -21,12 +21,12 @@ Do not start a run nobody will watch until these four are written at the top of 
 ## Logging
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/decision-log.sh start '<goal> · done: <check> · stop: <escape hatch>'
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/decision-log.sh start '<goal> · done: <check> · may: <permissions> · stop: <escape hatch>'
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/decision-log.sh add '<phase>' '<decision>' '<why>' '<evidence>' '<result>'
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/decision-log.sh read [n]
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/decision-log.sh path
 ```
-The script timestamps each row, strips tabs and newlines, and neutralises cells that would act as spreadsheet formulas. The file lives in the plugin's data directory for this repository (never in the working tree); `path` prints it.
+The script timestamps each row, strips tabs and newlines, and neutralises cells that would act as spreadsheet formulas. The file lives under `.claude/.cache/decisions/` at the repository top, which every dimi diff and scan already excludes and the per-repo starter gitignores; `path` prints it.
 
 Log a row at every point where a reader would ask "why did it go this way": a fork between approaches, a unit finished and verified, a pivot or a revert, a blocker, a gate fixed. In a loop, one row per iteration. Skip the obvious. Cells, in plain words:
 - **phase**: the step of the plan or the loop iteration.

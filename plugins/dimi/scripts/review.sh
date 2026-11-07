@@ -141,22 +141,26 @@ worklist() {
 sizes() {
   load "${1-}"; MAX=$(opt "${2-}" 1000); case "$MAX" in ''|*[!0-9]*) MAX=1000 ;; esac
   cd "$TOP" || exit 1
-  if [ -n "$HEAD_REF" ]; then FILES=$(git -c core.quotePath=false diff --name-only "$BASE" "$HEAD_REF" 2>/dev/null)
-  else FILES=$( { git -c core.quotePath=false diff --name-only "$BASE" 2>/dev/null; git -c core.quotePath=false ls-files --others --exclude-standard | grep -vE -- "$NEVER_DUMP_RE|$LOCAL_STATE_RE"; } | sort -u); fi
+  if [ -n "$N" ] && [ -z "$HEAD_REF" ]; then echo "sizes: the PR head was not fetched (the diff came from gh pr diff), so file sizes are unavailable; read sizes on GitHub"; return 0; fi
+  # name-status with rename detection: a moved file is measured against its old path, not reported as new
+  if [ -n "$HEAD_REF" ]; then LIST=$(git -c core.quotePath=false diff -M --name-status "$BASE" "$HEAD_REF" 2>/dev/null)
+  else LIST=$( { git -c core.quotePath=false diff -M --name-status "$BASE" 2>/dev/null; git -c core.quotePath=false ls-files --others --exclude-standard | grep -vE -- "$NEVER_DUMP_RE|$LOCAL_STATE_RE" | sed 's/^/A	/'; } ); fi
   echo "File sizes (lines before → after; limit $MAX):"
-  printf '%s\n' "$FILES" | grep . | while IFS= read -r f; do
-    B=$(git show "$BASE:$f" 2>/dev/null | grep -c ''); B=${B:-0}
-    if [ -n "$HEAD_REF" ]; then A=$(git show "$HEAD_REF:$f" 2>/dev/null | grep -c '')
-    elif [ -f "$f" ]; then A=$(grep -c '' "$f" 2>/dev/null); else A=0; fi; A=${A:-0}
+  printf '%s\n' "$LIST" | grep . | while IFS="$(printf '\t')" read -r st old new; do
+    case "$st" in R*|C*) ;; D*) continue ;; *) new=$old ;; esac
+    B=$(git show "$BASE:$old" 2>/dev/null | grep -c ''); B=${B:-0}
+    if [ -n "$HEAD_REF" ]; then A=$(git show "$HEAD_REF:$new" 2>/dev/null | grep -c '')
+    elif [ -f "$new" ]; then A=$(grep -c '' "$new" 2>/dev/null); else A=0; fi; A=${A:-0}
     # numstat prints "-<tab>-" for a binary file (an untracked one is compared with --no-index against /dev/null)
-    if [ -n "$HEAD_REF" ]; then NS=$(git_diff --numstat "$BASE" "$HEAD_REF" -- "$f" 2>/dev/null)
-    elif git ls-files --error-unmatch -- "$f" >/dev/null 2>&1; then NS=$(git_diff --numstat "$BASE" -- "$f" 2>/dev/null)
-    else NS=$(git_diff --no-index --numstat /dev/null "$f" 2>/dev/null); fi
+    if [ -n "$HEAD_REF" ]; then NS=$(git_diff --numstat "$BASE" "$HEAD_REF" -- "$new" 2>/dev/null)
+    elif git ls-files --error-unmatch -- "$new" >/dev/null 2>&1; then NS=$(git_diff -M --numstat "$BASE" -- "$old" "$new" 2>/dev/null)
+    else NS=$(git_diff --no-index --numstat /dev/null "$new" 2>/dev/null); fi
     case "$NS" in -*) continue ;; esac
     FLAG=''
     if [ "$B" -le "$MAX" ] && [ "$A" -gt "$MAX" ]; then FLAG="  <-- crossed $MAX in this change"
     elif [ "$B" -gt "$MAX" ] && [ "$A" -gt "$B" ]; then FLAG="  <-- already past $MAX and grew"; fi
-    printf '  %6s → %-6s %s%s\n' "$B" "$A" "$f" "$FLAG"
+    [ "$old" != "$new" ] && new="$new (was $old)"
+    printf '  %6s → %-6s %s%s\n' "$B" "$A" "$new" "$FLAG"
   done | sort -k3,3nr
 }
 

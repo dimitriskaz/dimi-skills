@@ -32,6 +32,7 @@ If an argument was given, answer it: name the one or two skills that fit and the
 | debug | `/dimi:debug <symptom>` | no | Find a bug's root cause: failing test first, a done check, one hypothesis at a time; a perf number is vetted before it is reported |
 | decision-log | `/dimi:decision-log start\|add\|read\|commit` | no | Append-only log of decisions with evidence for long or unattended runs, with the done check and escape hatch up front, and a morning read that leads with what needs attention |
 | walkthrough | `/dimi:walkthrough <module or flow>` | no | Explain part of the system end to end with code references and a diagram |
+| prose | (automatic) | n/a | House rules for PR bodies, release notes, reports and replies; background knowledge, not a command |
 | release-notes | `/dimi:release-notes [range] [--docs]` | **yes** | Release notes from merged work, with screenshots; `--docs` for illustrated product docs |
 | report | `/dimi:report [ticket, path, range or #pr]` | no | One self-contained HTML report about a ticket, codebase, review, investigation or release: verdict, what changed, how it works, evidence, findings, risks; reads offline, light and dark, prints to PDF |
 | build-report | `/dimi:build-report [what the reader must decide] [--critique <route>]` | **yes** | Build a dashboard, reports page, scheduled report or BI definition inside the codebase, in its own stack: questions and the dashboard's role first, one tested metric registry, rollups that hold at real scale, KPIs with their comparison, charts by question, every widget state and the operational status model, exports from the same definitions; `--critique` judges an existing dashboard |
@@ -50,7 +51,6 @@ Order: plan-from-ticket → (grill-me) → build → ui-states-review (agent-ui-
 | review-agent | `/dimi:review-agent [path]` | no | Production-readiness review of an agent codebase |
 | harden-mcp | `/dimi:harden-mcp [path]` | no | Security and spec-compliance review of an MCP server |
 | harness-reference | (automatic) | n/a | Background knowledge Claude loads itself; not a command |
-| prose | (automatic) | n/a | House rules for PR bodies, release notes, reports and replies; not a command |
 | client-profile | `/dimi:client-profile [client]` | **yes** | Create the engagement profile the other skills read |
 | refresh-harness | `/dimi:refresh-harness [area]` | **yes** | Update the plugin's dated facts; only from a checkout of dimi-skills |
 

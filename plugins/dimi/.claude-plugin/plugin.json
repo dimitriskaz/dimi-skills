@@ -116,7 +116,7 @@
     "max_file_lines": {
       "type": "string",
       "title": "File size limit (lines)",
-      "description": "pr-structure-review flags a source file that crosses this many lines in a change, or is already past it and grows, unless the PR says why. Non-numeric values fall back to 1000.",
+      "description": "pr-structure-review flags any file in the diff that crosses this many lines in the change, or is already past it and grows, unless the PR says why. Non-numeric values fall back to 1000.",
       "default": "1000"
     }
   }
