@@ -16,7 +16,7 @@ REPO=$(basename "$T")
 B=$(branch_name)
 DB=$(resolve_db "${1-}")
 TR=$(resolve_tr "${2-}")
-RANGE=$(opt "${3-}")
+RANGE=$(opt "${3-}"); case "$RANGE" in -*) echo "- Range: a range cannot start with '-' ($RANGE)"; RANGE=; BAD=1 ;; esac
 HEAD_SHA=$(git rev-parse -q --verify --short HEAD 2>/dev/null || echo 'no commits yet')
 
 echo "- Repository: $REPO ($T)"
@@ -28,24 +28,36 @@ if [ -n "$TR" ] && valid_ere "$TR"; then
 else
   echo "- Ticket key: ticket regex disabled or invalid"
 fi
-REMOTE=$(git remote get-url origin 2>/dev/null | sed -E 's#(https?://|git@)([^/:]+)[:/]#\2/#; s#\.git$##'); echo "- Remote: ${REMOTE:-none}"
+# host/owner/repo only: a remote URL can carry user:token@ (CI, gh-configured clones), which must never reach a report
+REMOTE=$(git remote get-url origin 2>/dev/null | sed -E 's#^[a-z+]+://([^@/]*@)?##; s#^[^@/]*@##; s#^([^/:]+):#\1/#; s#\.git$##'); echo "- Remote: ${REMOTE:-none}"
 
 # The delta: an explicit range, else this branch against the default branch (merge base), else nothing.
 with_timeout 10 git fetch -q origin "$DB" >/dev/null 2>&1 || true
 BASE=
 if [ -n "$RANGE" ]; then
-  if git rev-list -n 1 "$RANGE" >/dev/null 2>&1; then echo "- Range: $RANGE"
+  if git rev-list -n 1 "$RANGE" -- >/dev/null 2>&1; then echo "- Range: $RANGE"
   else echo "- Range: $RANGE is not a valid revision range here (unknown ref or unfetched branch): fix the range before writing anything about it"; RANGE=; BAD=1; fi
 fi
 if [ -n "${BAD-}" ]; then LOG=; STAT=
 elif [ -n "$RANGE" ]; then
-  LOG=$(git log --no-merges --format='%h %ad %s' --date=short "$RANGE" 2>/dev/null | cap 60)
-  STAT=$(git_diff --numstat "$RANGE" 2>/dev/null)
+  LOG=$(git log --no-merges --format='%h %ad %s' --date=short "$RANGE" -- 2>/dev/null | cap 60)
+  STAT=$(git_diff --numstat "$RANGE" -- 2>/dev/null)
 elif git rev-parse -q --verify "origin/$DB" >/dev/null 2>&1 && [ "$B" != "$DB" ]; then
   BASE=$(git merge-base "origin/$DB" HEAD 2>/dev/null)
-  echo "- Range: origin/$DB..HEAD (merge base ${BASE:0:7}) plus uncommitted and untracked work"
-  LOG=$(git log --no-merges --format='%h %ad %s' --date=short "origin/$DB..HEAD" 2>/dev/null | cap 60)
-  STAT=$( { git_diff --numstat "$BASE" 2>/dev/null; git -c core.quotePath=false ls-files --others --exclude-standard | grep -vE -- "$NEVER_DUMP_RE|$LOCAL_STATE_RE" | while IFS= read -r f; do [ -f "$f" ] && printf '%s\t0\t%s\n' "$(grep -c '' "$f" 2>/dev/null || echo 0)" "$f"; done; } )
+  if [ -z "$BASE" ]; then
+    echo "- Range: origin/$DB..HEAD has no merge base here (a shallow clone): run git fetch --unshallow, or --deepen, before a ticket report"
+    LOG=; STAT=
+  else
+    echo "- Range: origin/$DB..HEAD (merge base ${BASE:0:7}) plus uncommitted and untracked work"
+    LOG=$(git log --no-merges --format='%h %ad %s' --date=short "origin/$DB..HEAD" -- 2>/dev/null | cap 60)
+    # untracked regular files only (no links, no devices), capped, counted in one grep; /dev/null forces the path:count form
+    UNTRACKED=$(git -c core.quotePath=false ls-files --others --exclude-standard | grep -vE -- "$NEVER_DUMP_RE|$LOCAL_STATE_RE" | while IFS= read -r f; do [ -L "$f" ] || [ ! -f "$f" ] || printf '%s\n' "$f"; done)
+    N_UNTRACKED=$(printf '%s\n' "$UNTRACKED" | grep -c .)
+    STAT=$( { git_diff --numstat "$BASE" -- 2>/dev/null
+      printf '%s\n' "$UNTRACKED" | head -n 500 | grep . | tr '\n' '\0' | xargs -0 -r grep -c '' -- /dev/null 2>/dev/null \
+        | awk '{ n = $0; sub(/.*:/, "", n); p = $0; sub(/:[0-9]+$/, "", p); if (p != "/dev/null") printf "%s\t0\t%s\n", n, p }'
+      [ "$N_UNTRACKED" -gt 500 ] && printf '0\t0\t… and %s more untracked files not counted\n' "$((N_UNTRACKED - 500))"; } )
+  fi
 else
   echo "- Range: none (on the default branch or no origin/$DB); a ticket report needs a branch or an explicit range"
   LOG=; STAT=
@@ -67,18 +79,18 @@ for d in "$T/../plan-from-ticket-$REPO" "$T/../walkthrough-$REPO" "$T/../self-re
 done
 
 # Codebase shape, for a codebase report: languages by file count, size, tests, manifests, churn hotspots.
-FILES=$(git -c core.quotePath=false ls-files 2>/dev/null)
+FILES=$(tracked_files)
 echo "- Tracked files: $(printf '%s\n' "$FILES" | grep -c .)"
-block "Languages (files by extension, top 12)" "$(printf '%s\n' "$FILES" | sed -nE 's/.*\.([A-Za-z0-9]+)$/\1/p' | tr 'A-Z' 'a-z' | sort | uniq -c | sort -rn | head -12 | awk '{ printf "%s %s\n", $2, $1 }')"
-block "Top-level layout" "$(printf '%s\n' "$FILES" | awk -F/ 'NF > 1 { print $1 "/" } NF == 1 { print $1 }' | sort | uniq -c | sort -rn | head -20 | awk '{ printf "%s (%s)\n", $2, $1 }')"
+block "Languages (files by extension, top 12)" "$(printf '%s\n' "$FILES" | sed -nE 's/.*\.([A-Za-z0-9]+)$/\1/p' | tr 'A-Z' 'a-z' | sort | uniq -c | sort -rn | head -12 | count_reorder)"
+block "Top-level layout" "$(printf '%s\n' "$FILES" | awk -F/ 'NF > 1 { print $1 "/" } NF == 1 { print $1 }' | sort | uniq -c | sort -rn | head -20 | count_reorder | sed -E 's/ ([0-9]+)$/ (\1)/')"
 block "Manifests and entry points" "$(printf '%s\n' "$FILES" | grep -E '(^|/)(package\.json|pyproject\.toml|requirements[^/]*\.txt|go\.mod|Cargo\.toml|pom\.xml|build\.gradle(\.kts)?|Gemfile|composer\.json|Dockerfile|docker-compose[^/]*\.ya?ml|Makefile|\.github/workflows/[^/]+|README\.md|CLAUDE\.md|AGENTS\.md)$' | cap 30)"
 echo "- Test files (by name): $(printf '%s\n' "$FILES" | grep -ciE '(^|/)(tests?|__tests__|spec|e2e)(/|$)|\.(test|spec)\.[a-z]+$|_test\.(go|py|rs)$')"
 SRCS=$(printf '%s\n' "$FILES" | grep -E '\.(ts|tsx|js|jsx|py|go|rs|java|kt|rb|php|cs|swift|scala|sql|sh|vue|svelte)$' | grep -vE '(^|/)(dist|build|vendor|node_modules|generated)/|\.min\.')
-echo "- TODO/FIXME/HACK markers in source: $(printf '%s\n' "$SRCS" | tr '\n' '\0' | xargs -0 -r grep -cE '(TODO|FIXME|HACK|XXX)[:( ]' 2>/dev/null | awk -F: '{ n += $NF } END { print n + 0 }')"
-echo "- Skipped or focused tests: $(printf '%s\n' "$SRCS" | tr '\n' '\0' | xargs -0 -r grep -cE '(^|[^A-Za-z0-9_])(it|test|describe)\.(skip|only|todo)\(|@pytest\.mark\.skip|@unittest\.skip|t\.Skip\(|xit\(|xdescribe\(' 2>/dev/null | awk -F: '{ n += $NF } END { print n + 0 }')"
+echo "- TODO/FIXME/HACK markers in source: $(printf '%s\n' "$SRCS" | tr '\n' '\0' | xargs -0 -r grep -cE '(TODO|FIXME|HACK|XXX)[:( ]' -- 2>/dev/null | awk -F: '{ n += $NF } END { print n + 0 }')"
+echo "- Skipped or focused tests: $(printf '%s\n' "$SRCS" | tr '\n' '\0' | xargs -0 -r grep -cE '(^|[^A-Za-z0-9_])(it|test|describe)\.(skip|only|todo)\(|@pytest\.mark\.skip|@unittest\.skip|t\.Skip\(|xit\(|xdescribe\(' -- 2>/dev/null | awk -F: '{ n += $NF } END { print n + 0 }')"
 block "Churn hotspots, last 180 days (commits touching the file; size × churn is where bugs live)" \
-  "$(git log --since='180 days ago' --no-merges --format= --name-only 2>/dev/null | grep . | sort | uniq -c | sort -rn | head -15 | awk '{ printf "%s %s\n", $2, $1 }')"
-block "Largest source files (lines)" "$(printf '%s\n' "$FILES" | grep -E '\.(ts|tsx|js|jsx|py|go|rs|java|kt|rb|php|cs|swift|scala|sql|sh)$' | grep -vE '(^|/)(dist|build|vendor|node_modules|generated)/|\.min\.|lock' | tr '\n' '\0' | xargs -0 -r wc -l 2>/dev/null | grep -v ' total$' | sort -rn | head -10 | awk '{ printf "%s %s\n", $2, $1 }')"
+  "$(git -c core.quotePath=false log --since='180 days ago' --no-merges --format= --name-only 2>/dev/null | grep . | sort | uniq -c | sort -rn | head -15 | count_reorder)"
+block "Largest source files (lines)" "$(printf '%s\n' "$SRCS" | grep . | tr '\n' '\0' | xargs -0 -r wc -l -- 2>/dev/null | grep -v ' total$' | sort -rn | head -10 | count_reorder)"
 # git log, not shortlog: shortlog reads stdin when it is not a terminal and hangs under the skill injection.
 echo "- Contributors, last 180 days: $(git log --since='180 days ago' --no-merges --format=%ae 2>/dev/null | sort -u | wc -l | tr -d ' ')"
 FIRST=$(git log --reverse --format=%ad --date=short 2>/dev/null | head -1); LAST=$(git log -1 --format=%ad --date=short 2>/dev/null); echo "- First and last commit: ${FIRST:-none} → ${LAST:-none}"

@@ -148,14 +148,16 @@ sizes() {
   echo "File sizes (lines before → after; limit $MAX):"
   printf '%s\n' "$LIST" | grep . | while IFS="$(printf '\t')" read -r st old new; do
     case "$st" in R*|C*) ;; D*) continue ;; *) new=$old ;; esac
-    B=$(git show "$BASE:$old" 2>/dev/null | grep -c ''); B=${B:-0}
-    if [ -n "$HEAD_REF" ]; then A=$(git show "$HEAD_REF:$new" 2>/dev/null | grep -c '')
-    elif [ -f "$new" ]; then A=$(grep -c '' "$new" 2>/dev/null); else A=0; fi; A=${A:-0}
-    # numstat prints "-<tab>-" for a binary file (an untracked one is compared with --no-index against /dev/null)
+    # numstat first: it prints "-<tab>-" for a binary file, which is then never read (an untracked one is compared
+    # with --no-index against /dev/null); a symlink is skipped too
+    [ -L "$new" ] && continue
     if [ -n "$HEAD_REF" ]; then NS=$(git_diff --numstat "$BASE" "$HEAD_REF" -- "$new" 2>/dev/null)
     elif git ls-files --error-unmatch -- "$new" >/dev/null 2>&1; then NS=$(git_diff -M --numstat "$BASE" -- "$old" "$new" 2>/dev/null)
     else NS=$(git_diff --no-index --numstat /dev/null "$new" 2>/dev/null); fi
     case "$NS" in -*) continue ;; esac
+    B=$(git show "$BASE:$old" 2>/dev/null | grep -c ''); B=${B:-0}
+    if [ -n "$HEAD_REF" ]; then A=$(git show "$HEAD_REF:$new" 2>/dev/null | grep -c '')
+    elif [ -f "$new" ]; then A=$(grep -c '' -- "$new" 2>/dev/null </dev/null); else A=0; fi; A=${A:-0}
     FLAG=''
     if [ "$B" -le "$MAX" ] && [ "$A" -gt "$MAX" ]; then FLAG="  <-- crossed $MAX in this change"
     elif [ "$B" -gt "$MAX" ] && [ "$A" -gt "$B" ]; then FLAG="  <-- already past $MAX and grew"; fi

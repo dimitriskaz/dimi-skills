@@ -18,7 +18,7 @@ case "${1-}" in
     cp "$TEMPLATE" "$F" && echo "$F" ;;
   img)
     R="${2:?report path}"; I="${3:?image file}"; [ -f "$R" ] || { echo "no report at $R" >&2; exit 1; }; [ -f "$I" ] || { echo "no image at $I" >&2; exit 1; }
-    D="$(dirname "$R")/img"; mkdir -p "$D" && cp "$I" "$D/" && echo "img/$(basename "$I")" ;;
+    D="$(dirname "$R")/img"; mkdir -p "$D" && cp -- "$I" "$D/" && echo "img/$(basename -- "$I")" ;;
   shot)
     R="${2:?report path}"; [ -f "$R" ] || { echo "no report at $R" >&2; exit 1; }
     command -v node >/dev/null 2>&1 && node -e "require('playwright')" >/dev/null 2>&1 || { echo "node with playwright is not available: open $R in a browser and look at it at desktop and phone width"; exit 0; }

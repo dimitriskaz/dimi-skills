@@ -22,15 +22,22 @@ row() {
 }
 case "${1-}" in
   start) row start "${2-}" "run start on $(branch_name) at $(git rev-parse --short HEAD 2>/dev/null)" "" open; echo "$F" ;;
-  done) [ $# -ge 3 ] || { echo "usage: decision-log.sh done '<met | not met: why>' <evidence>" >&2; exit 2; }; row done "done check: $2" "" "$3" "$(case "$2" in met*) echo green ;; *) echo open ;; esac)"; echo "logged row $(($(grep -c '' "$F") - 1))" ;;
+  done) [ $# -ge 3 ] || { echo "usage: decision-log.sh done '<met | not met: why>' <evidence>" >&2; exit 2; }
+        case "$2" in [Mm]et|[Mm]et[[:space:]:]*) V=green ;; [Nn]ot[[:space:]][Mm]et|[Nn]ot[[:space:]][Mm]et[[:space:]:]*) V=open ;; *) echo "done: the verdict starts with 'met' or 'not met'" >&2; exit 2 ;; esac
+        row done "done check: $2" "" "$3" "$V"; echo "logged row $(($(grep -c '' "$F") - 1))" ;;
   add) [ $# -ge 6 ] || { echo "usage: decision-log.sh add <phase> <decision> <why> <evidence> <result>" >&2; exit 2; }; row "$2" "$3" "$4" "$5" "$6"; echo "logged row $(($(grep -c '' "$F") - 1))" ;;
   read) [ -f "$F" ] || { echo "no decision log for this repository"; exit 0; }
         # default: this run, i.e. the rows from the last start row; a number: the last n rows; all: everything
-        case "${2-}" in all) SEL='NR > 1' ;; ''|*[!0-9]*) SEL='last' ;; *) SEL="NR > 1 && NR > $(grep -c '' "$F") - $2" ;; esac
-        pick() { if [ "$SEL" = last ]; then awk -F'\t' 'NR == 1 { next } $2 == "start" { buf = "" } { buf = buf $0 "\n" } END { printf "%s", buf }' "$F"; else awk "$SEL" "$F"; fi; }
+        case "${2-}" in all) SEL='NR > 1' ;; '') SEL='last' ;; *[!0-9]*|0) echo "read: n must be a count or all" >&2; exit 2 ;; *) SEL="NR > 1 && NR > $(grep -c '' "$F") - $2" ;; esac
+        # long cells are truncated on read only; the file keeps them whole
+        pick() { { if [ "$SEL" = last ]; then awk -F'\t' 'NR == 1 { next } $2 == "start" { buf = "" } { buf = buf $0 "\n" } END { printf "%s", buf }' "$F"; else awk "$SEL" "$F"; fi; } | awk -F'\t' -v OFS='\t' '{ for (i = 1; i <= NF; i++) if (length($i) > 160) $i = substr($i, 1, 157) "..." } 1'; }
         if command -v column >/dev/null 2>&1; then { head -1 "$F"; pick; } | column -s "$(printf '\t')" -t; else head -1 "$F"; pick; fi ;;
   path) echo "$F" ;;
   commit) [ -f "$F" ] || { echo "no decision log to commit" >&2; exit 1; }
-          D="${2:?usage: decision-log.sh commit <dir in the repo>}"; case "$D" in /*) ;; *) D="$T/$D" ;; esac; mkdir -p "$D" && cp "$F" "$D/decisions-$(safe_name "$(branch_name)").tsv" && echo "copied to $D/decisions-$(safe_name "$(branch_name)").tsv (stage and commit it yourself)" ;;
+          D="${2:?usage: decision-log.sh commit <dir in the repo>}"
+          case "$D" in /*|-*|*..*) echo "commit: give a directory inside the repository, relative to its top" >&2; exit 2 ;; esac
+          mkdir -p "$T/$D" && D=$(cd "$T/$D" && pwd -P) || exit 1
+          case "$D" in "$T"/*) ;; *) echo "commit: $D is outside the repository" >&2; exit 2 ;; esac
+          cp "$F" "$D/decisions-$(safe_name "$(branch_name)").tsv" && echo "copied to $D/decisions-$(safe_name "$(branch_name)").tsv (stage and commit it yourself)" ;;
   *) echo "usage: decision-log.sh start|add|done|read|path|commit … (see the header of this file)" >&2; exit 2 ;;
 esac
