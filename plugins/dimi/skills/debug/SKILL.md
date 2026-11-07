@@ -8,7 +8,7 @@ argument-hint: "[error message, failing test, ticket, or description of the symp
 
 Debugging goes wrong in one way: trying things. Each attempt that does not work leaves its residue in the code and in the context, the next attempt is made on top of it, and after three rounds nobody knows what state anything is in. This skill replaces that with a loop that always knows where it is, because it writes down where it is.
 
-Triggers: `/dimi:debug`, "this is failing", "CI is red", "it worked yesterday", "why does X happen", a pasted stack trace. For a performance symptom, before reporting any before-and-after number run `bash ${CLAUDE_PLUGIN_ROOT}/scripts/state/companions.sh`; if pstack is installed, read its `benchmark-checklist` at the printed path and answer its questions about the measurement first (what limits it, was each side tuned, is it repeatable, did the work happen inside the timed region); a number that fails them is reported as inconclusive, not as a speedup. For a long investigation delegate to the `debugger` agent so the transcript stays out of your main context; it follows this same skill.
+Triggers: `/dimi:debug`, "this is failing", "CI is red", "it worked yesterday", "why does X happen", a pasted stack trace. For a long investigation delegate to the `debugger` agent so the transcript stays out of your main context; it follows this same skill.
 
 ## 0. Capture before touching anything
 
