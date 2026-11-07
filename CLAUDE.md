@@ -7,6 +7,7 @@ This repository is a Claude Code plugin marketplace. Follow these conventions wh
 - Add client names, client architecture, client data, credentials or anything learned on a specific engagement. This repository travels to every engagement.
 - Add repository facts (ticket regexes, paths, script names, folder globs) into a skill body. They go in plugin `userConfig` options, the `pr-self-review` "Repo policy" block, or the per-repo `templates/project-claude/` starter.
 - Edit files in an installed plugin cache. Change them here, then release.
+- Copy skills, rules or scripts from the companion plugins (ponytail, pstack, cursor-team-kit) into dimi. They are listed in the marketplace so they install from here; their content stays upstream.
 
 ## Skills
 
@@ -33,4 +34,4 @@ This repository is a Claude Code plugin marketplace. Follow these conventions wh
 
 1. Validate: `claude plugin validate ./` and `claude plugin validate ./plugins/dimi --strict`.
 2. Add a `plugins/dimi/CHANGELOG.md` entry and bump `version` in `plugins/dimi/.claude-plugin/plugin.json` (patch for fact updates, minor for new or changed skills or checks, major for breaking changes).
-3. Merge through a pull request. Tag the release `v<version>` (one plugin, one version) so users can pin the marketplace to it.
+3. Merge through a pull request. Tag the release `v<version>` (one plugin of our own, one version; the companion entries in `.claude-plugin/marketplace.json` install from their own repositories and are not versioned here) so users can pin the marketplace to it.

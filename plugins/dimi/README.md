@@ -59,6 +59,10 @@ The loop: plan-from-ticket → (grill-me) → build → ui-states-review (and ag
 
 Principles and decisions live in `skills/harness-reference/references/` and change slowly. Rubrics, checklists and tested code patterns live in each review skill's `references/`. API specifics (names, versions, code fragments) are kept to what the patterns need, each under an "as of" note, and the skills confirm them against current docs at run time. Run `/dimi:refresh-harness` monthly, on the first working day.
 
+## Companions
+
+The `dimi-skills` marketplace also lists three third-party plugins that install from their own repositories: `ponytail` (the least code that works, with a debt ledger), `pstack` (playbook routing with evidence and named principles) and `cursor-team-kit` (a strict maintainability review and CI and shipping helpers). `/plugin install <name>@dimi-skills`; what each adds and where it overlaps with dimi is in the [repository README](../../README.md#companion-plugins).
+
 ## Notes
 
 - The `reviewer` agent's `skills:` preload names the two checklist skills by bare name; if your Claude Code version requires the namespaced form, change it to `dimi:pr-correctness-scalability-review, dimi:pr-security-data-review`.
