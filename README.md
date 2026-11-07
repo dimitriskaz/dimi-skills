@@ -46,14 +46,7 @@ dimi is one plugin. These third-party marketplaces pair well with it; each is in
 | [cursor/plugins](https://github.com/cursor/plugins) | `/plugin marketplace add cursor/plugins` | `/plugin install pstack@cursor-plugins` | pstack: state a goal and a checkable done condition and `/pstack:poteto-mode` picks the playbook and shows evidence; named principles to steer with mid-task; a decision log and overnight contract for unattended runs; `unslop`, `no-comments`, `tdd`, a benchmark checklist |
 | [cursor/plugins](https://github.com/cursor/plugins/tree/main/cursor-team-kit), cursor-team-kit | see below | see below | `thermo-nuclear-code-quality-review`, an unusually strict maintainability review (code-judo simplifications, branching growth, files past 1,000 lines, thin wrappers, casts, logic in the wrong layer), plus `deslop`, `verify-this`, `fix-ci`, `loop-on-ci`, `review-and-ship`, `what-did-i-get-done`, `weekly-review` |
 
-### How they work together
-
-dimi detects which of them are installed (from the plugin cache and the skills directories; `scripts/state/companions.sh`) and chains them where they add a lens dimi does not have, without copying anything:
-
-- **`/dimi:pr-self-review`** runs its four stages (compliance, correctness and scalability, security and data, domain reviews), then offers the installed review rubrics as **stage 5** on the same diff: the thermo-nuclear maintainability review and ponytail's review. Their findings land in the same report with `TN-` and `PT-` ids and dimi's severities, so there is one verdict and one fix loop. The plugin option `companion_reviews` decides whether it asks first (`ask`, the default), runs them (`always`) or only mentions them (`never`). A `shortcut:` marker in the diff becomes a Note for `/ponytail-debt`'s ledger.
-- **`/dimi:commit-push-pr`** applies pstack's `unslop` patterns to the commit bodies and PR body it drafts.
-- **`/dimi:debug`** applies pstack's `benchmark-checklist` to any before-and-after number before a perf fix is reported.
-- Their own commands keep working on their own. `/ponytail-review` and pstack's bug-fix, feature and PR playbooks parallel `pr-self-review` and the dimi loop, so run one per task, not both playbooks on the same ticket. Ponytail's writing stance (`/ponytail full`) and its hooks (status line, band) run beside dimi's hooks.
+How they overlap with dimi: `/ponytail-review` and pstack's bug-fix, feature and PR playbooks parallel `pr-self-review` and the dimi loop, so use one per task; the thermo-nuclear review covers structure, which `pr-self-review` does not, so it runs well after it. Ponytail installs its own hooks (status line, band), which run beside dimi's.
 
 **cursor-team-kit** is written for Cursor and is not in Cursor's Claude Code marketplace file (only `pstack` and `origin-apps` are). Its `skills/` are plain `SKILL.md` files, so Claude Code can still load it two ways:
 
