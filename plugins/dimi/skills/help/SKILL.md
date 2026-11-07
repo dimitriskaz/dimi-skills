@@ -34,7 +34,7 @@ If an argument was given, answer it: name the one or two skills that fit and the
 | walkthrough | `/dimi:walkthrough <module or flow>` | no | Explain part of the system end to end with code references and a diagram |
 | release-notes | `/dimi:release-notes [range] [--docs]` | **yes** | Release notes from merged work, with screenshots; `--docs` for illustrated product docs |
 | report | `/dimi:report [ticket, path, range or #pr]` | no | One self-contained HTML report about a ticket, codebase, review, investigation or release: verdict, what changed, how it works, evidence, findings, risks; reads offline, light and dark, prints to PDF |
-| build-report | `/dimi:build-report [what the reader must decide]` | **yes** | Build a dashboard, reports page, scheduled report or BI definition inside the codebase, in its own stack: questions first, one tested metric registry, rollups that hold at real scale, charts by question, every widget state, exports from the same definitions |
+| build-report | `/dimi:build-report [what the reader must decide] [--critique <route>]` | **yes** | Build a dashboard, reports page, scheduled report or BI definition inside the codebase, in its own stack: questions and the dashboard's role first, one tested metric registry, rollups that hold at real scale, KPIs with their comparison, charts by question, every widget state and the operational status model, exports from the same definitions; `--critique` judges an existing dashboard |
 | poc | `/dimi:poc init\|mark\|sync\|push\|ledger\|status` | **yes** | Keep a long-lived demo branch honest: mark shortcuts, ledger, merge main in, push |
 | port | `/dimi:port <feature>` | **yes** | Bring a feature from the demo branch to the default branch properly |
 

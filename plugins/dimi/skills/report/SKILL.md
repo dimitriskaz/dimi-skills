@@ -50,7 +50,7 @@ Components and when to use them:
 | --- | --- |
 | `.masthead` | kind · repo · branch crumbs, the title (a name, two to five words, never "Report on …"), a two-sentence lede, meta (ticket, as-of commit and date, audience, range) |
 | `.verdict good|warn|crit` | the one-line status and the one thing to do; always first in Summary |
-| `.stats` | three to five numbers, only when the numbers are the point (size of a change, health of a codebase); never decoration |
+| `.stats` | three to five numbers, only when the numbers are the point (size of a change, health of a codebase); never decoration; a tile carries its comparison or trend in the `.d` line (against the base, the last release, the target) or it is a count, not a KPI |
 | `.tbl` tables | commits, changed files with `.bar` widths scaled to the largest row, checks run, settings |
 | `ol.timeline` | the path data takes, or the sequence of an investigation; `li.crit` / `li.good` mark the failure and the fix |
 | `figure.diagram` (inline SVG) or `pre.mermaid` | the system shape, boxes named as the code names them, arrows carrying the data shape; Mermaid renders when the reader is online and stays readable as source when not |

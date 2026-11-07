@@ -68,6 +68,24 @@ Every chart: axis labels with units, ticks at values the data reaches, the zero 
 
 Actions (export, schedule, share): optimistic only when reversible; a partial success (some tenants exported) lists what was written; a permanent failure (403, 409) closes the flow.
 
+## 3b. Operational status model
+
+For a live or response dashboard, every exception row or tile carries all of these, or says why not:
+
+| Field | Shows | Never |
+| --- | --- | --- |
+| status | one of normal, warning, critical, stale, unknown, no data, suppressed, resolved; as text and a second channel (shape, position or intensity), not colour alone | a bare red/amber/green dot |
+| freshness | "updated 2 min ago" and the source it came from; stale past the threshold | an exact-looking figure with no time |
+| severity | the threshold that was crossed and by how much | "high" with no number |
+| owner | the team or person who acts; unassigned is a visible state | an implicit owner |
+| next action | the one thing to do now, linked to where it is done | a generic "investigate" |
+| response state | acknowledged, assigned, muted (with duration, reason, who, until), escalated, resolved; each leaves an audit row | a mute with no end |
+| drill-down | cause, affected entity, recent change, history, with the overview still in view | a navigation that loses the list |
+
+Refresh: new exceptions are flagged at the edge; a row someone has opened keeps its place until they release it; a freeze control exists only when it cannot hide a critical state.
+
+Examples. Weak: "Queue health: red". Strong: "Critical: 18 orders past SLA, updated 2 min ago, owner Fulfilment, next: reassign the backlog". Weak: live rows reorder while an operator reads. Strong: the new exception is flagged, the open row stays. Weak: mute with no duration or reason. Strong: mute for 30 min, reason required, owner shown, suppressed state visible, audit row written.
+
 ## 4. Data path patterns
 
 - **Rollup table**: `(tenant_id, period_start, grain, dimension…) → measures, computed_at, capped`. Unique on the key; the job upserts; a late event re-rolls its period; a `backfill --from --to` command exists.
@@ -89,4 +107,8 @@ Actions (export, schedule, share): optimistic only when reversible; a partial su
 
 ## 6. Things reviewers reject
 
-A pie with eight slices. A gauge. A bar axis that starts above zero. A "+100%" against an empty comparison. "0" where the request failed. Exact figures next to a "data may be incomplete" banner. A dashboard query without the tenant filter. The same metric computed in the page and in the export. A dashboard built by hand in the BI tool and screenshotted. A date range cut in the browser's time zone. A chart library added when one is in the lockfile.
+A pie with eight slices. A gauge. A bar axis that starts above zero. A "+100%" against an empty comparison. "0" where the request failed. Exact figures next to a "data may be incomplete" banner. A dashboard query without the tenant filter. The same metric computed in the page and in the export. A dashboard built by hand in the BI tool and screenshotted. A date range cut in the browser's time zone. A chart library added when one is in the lockfile. A KPI tile with no comparison. Every tile a different saturated colour. The main comparison split across tabs. Six radial gauges where six aligned bars with target markers would do. A status that is only a colour. An alert that can be muted with no end and no reason.
+
+## 7. Sources
+
+The design judgment in this file (decision before chart, comparison context on every measure, dashboard roles, one-screen overview, position and length before colour, quiet all-good states, the operational status model) follows Stephen Few's work on information dashboard design, restated here for this skill's use.
