@@ -66,7 +66,7 @@ Rules for the page:
 - `<title>` is the name of the report; the `.crumbs` carry the kind. The TOC lists every `section id` in order and nothing else.
 - Keep the token block untouched unless the repo has a `.claude/report-theme.css`; then inline that file's contents right after the `:root` block so its tokens win (a client's colours and faces live there, never in this plugin).
 - Fonts load from Google Fonts with system fallbacks; nothing else is fetched. No other scripts, no CDN CSS, no iframes, no tracking.
-- No emoji, no exclamation marks, no marketing. Present tense, plain words, one idea per sentence. Expand an acronym the first time.
+- No emoji, no exclamation marks, no marketing. Present tense, plain words, one idea per sentence, by `${CLAUDE_PLUGIN_ROOT}/skills/prose/SKILL.md`. Expand an acronym the first time.
 - A client or stakeholder report has no `path:line` in the body: number them `[1]`, `[2]` and resolve them in the Appendix.
 
 ## 5. Verify, then look once

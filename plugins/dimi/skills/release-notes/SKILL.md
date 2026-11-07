@@ -45,7 +45,7 @@ Group by **module → feature**, not by PR. For each feature, in the user's word
 - **Known limitations** — what is deferred, with tickets.
 - **Internal** (collapsed) — refactors, dependency updates, tooling.
 
-Tone: plain, present tense, no marketing; a reader should be able to verify every sentence against the product. Nothing a client should not read (internal customer names, incident details) unless the audience is internal — say which at the top.
+Tone: plain, present tense, no marketing, by `${CLAUDE_PLUGIN_ROOT}/skills/prose/SKILL.md`; a reader should be able to verify every sentence against the product. Nothing a client should not read (internal customer names, incident details) unless the audience is internal — say which at the top.
 
 ## 3. Plan the scenes
 
