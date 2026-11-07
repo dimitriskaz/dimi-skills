@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- TITLE: a name, two to five words, specific to this report. Never a category label. -->
+<title>Import relationships ABC-123</title>
+<meta name="description" content="Ticket report: what changed, how it works, how it was tested, what is left.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Serif:wght@500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* ============================================================================================
+   dimi report — design tokens. Change colours and faces HERE only; every rule below reads them.
+   Layout: a sticky table of contents on the left at desktop width, a 72ch reading column, full width
+   for tables and figures. The report must read offline: fonts fall back to system faces, nothing
+   else is fetched (the optional Mermaid script degrades to its source text).
+   ============================================================================================ */
+:root {
+  --bg: #f6f7f9;          /* page ground, a cool off-white */
+  --surface: #ffffff;     /* cards, code, table headers */
+  --surface-2: #eef1f4;   /* inset surfaces: table stripes, inline code */
+  --fg: #16212b;          /* body text */
+  --muted: #5a6572;       /* secondary text, captions */
+  --line: #d7dde4;        /* hairlines */
+  --accent: #0e6c64;      /* one accent: links, active TOC, header rule */
+  --accent-ink: #ffffff;  /* text on the accent */
+  --good: #1d7a3f;        /* semantic, separate from the accent */
+  --warn: #9a5b00;
+  --crit: #b3261e;
+  --info: #2b5cad;
+  --added: #1d7a3f;       /* diff and change bars */
+  --removed: #b3261e;
+  --shadow: 0 1px 2px rgba(22, 33, 43, .06), 0 8px 24px -16px rgba(22, 33, 43, .18);
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-display: "IBM Plex Serif", Georgia, "Times New Roman", serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --measure: 72ch;
+  --radius: 6px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f141a; --surface: #161d25; --surface-2: #1e2731; --fg: #e4e9ee; --muted: #9aa6b2; --line: #2a343f;
+    --accent: #4fc3b8; --accent-ink: #0f141a; --good: #5fcf84; --warn: #e4b04a; --crit: #ff7b72; --info: #7fb0f5;
+    --added: #5fcf84; --removed: #ff7b72;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -16px rgba(0, 0, 0, .6);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f141a; --surface: #161d25; --surface-2: #1e2731; --fg: #e4e9ee; --muted: #9aa6b2; --line: #2a343f;
+  --accent: #4fc3b8; --accent-ink: #0f141a; --good: #5fcf84; --warn: #e4b04a; --crit: #ff7b72; --info: #7fb0f5;
+  --added: #5fcf84; --removed: #ff7b72;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -16px rgba(0, 0, 0, .6);
+  color-scheme: dark;
+}
+
+/* ---- base ---------------------------------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { transition: none !important; animation: none !important; } }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font: 400 16px/1.6 var(--font-body);
+  font-feature-settings: "kern", "liga";
+  padding-block: 0 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 600; line-height: 1.2; margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+h1 { font-size: clamp(1.9rem, 1.3rem + 2vw, 2.6rem); }
+h2 { font-size: 1.5rem; }
+h3 { font-size: 1.15rem; }
+h4 { font-size: 1rem; font-family: var(--font-body); font-weight: 600; }
+p, ul, ol, dl, table, figure, pre, blockquote { margin: 0; }
+a { color: var(--accent); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:hover { text-decoration-thickness: 2px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+code, kbd, pre { font-family: var(--font-mono); font-size: .875em; }
+code { background: var(--surface-2); padding: .1em .35em; border-radius: 4px; }
+pre code { background: none; padding: 0; font-size: inherit; }
+strong { font-weight: 600; }
+hr { border: 0; border-top: 1px solid var(--line); margin: 0; }
+.eyebrow { font-family: var(--font-body); font-size: .75rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.muted { color: var(--muted); }
+.num { font-variant-numeric: tabular-nums; }
+.skip { position: absolute; left: -999px; top: 8px; background: var(--accent); color: var(--accent-ink); padding: 8px 12px; border-radius: var(--radius); z-index: 20; }
+.skip:focus { left: 16px; }
+
+/* ---- header -------------------------------------------------------------------------------- */
+.masthead { max-width: 1200px; margin: 0 auto; padding-block: 28px 20px; display: grid; gap: 14px; border-bottom: 3px solid var(--accent); }
+.masthead .top { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; }
+.masthead .crumbs { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+.masthead .crumbs .sep { color: var(--line); }
+.masthead .lede { font-size: 1.1rem; max-width: var(--measure); color: var(--fg); }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 22px; font-size: .875rem; color: var(--muted); }
+.meta b { color: var(--fg); font-weight: 500; }
+.theme-toggle { font: inherit; font-size: .8rem; color: var(--muted); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+.theme-toggle:hover { color: var(--fg); border-color: var(--muted); }
+
+/* ---- verdict banner ------------------------------------------------------------------------ */
+.verdict { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: start; padding: 14px 18px; border-radius: var(--radius); border: 1px solid var(--line); border-left: 6px solid var(--accent); background: var(--surface); }
+.verdict.good { border-left-color: var(--good); }
+.verdict.warn { border-left-color: var(--warn); }
+.verdict.crit { border-left-color: var(--crit); }
+.verdict .label { font-family: var(--font-display); font-size: 1.15rem; font-weight: 600; white-space: nowrap; }
+.verdict.good .label { color: var(--good); } .verdict.warn .label { color: var(--warn); } .verdict.crit .label { color: var(--crit); }
+@media (max-width: 560px) { .verdict { grid-template-columns: 1fr; gap: 6px; } }
+
+/* ---- stat tiles: only when the numbers are the point ---------------------------------------- */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; display: grid; gap: 2px; min-width: 0; }
+.stat .v { font-family: var(--font-display); font-size: 1.7rem; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.stat .k { font-size: .8rem; color: var(--muted); }
+.stat .d { font-size: .8rem; }
+.stat .d.up { color: var(--good); } .stat .d.down { color: var(--crit); }
+
+/* ---- layout: TOC + article ------------------------------------------------------------------ */
+.page { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr; gap: 32px; padding-top: 24px; }
+@media (min-width: 1024px) { .page { grid-template-columns: 220px minmax(0, 1fr); } }
+.toc { font-size: .875rem; }
+@media (min-width: 1024px) { .toc { position: sticky; top: 16px; align-self: start; max-height: calc(100vh - 32px); overflow: auto; } }
+.toc ol { list-style: none; padding: 0; display: grid; gap: 2px; }
+.toc a { display: block; padding: 5px 10px; color: var(--muted); text-decoration: none; border-left: 2px solid transparent; border-radius: 0 4px 4px 0; }
+.toc a:hover { color: var(--fg); background: var(--surface-2); }
+.toc a[aria-current="true"] { color: var(--accent); border-left-color: var(--accent); font-weight: 500; }
+.toc .eyebrow { padding: 0 10px 8px; }
+article { min-width: 0; display: grid; gap: 40px; }
+section { display: grid; gap: 16px; scroll-margin-top: 16px; }
+section > h2 { padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+section > p, section > ul, section > ol, section > dl, .prose { max-width: var(--measure); }
+ul, ol { padding-left: 1.4em; display: grid; gap: 6px; }
+li > ul, li > ol { margin-top: 6px; }
+.two { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+dl.kv { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; font-size: .95rem; }
+dl.kv dt { color: var(--muted); } dl.kv dd { margin: 0; min-width: 0; }
+@media (max-width: 480px) { dl.kv { grid-template-columns: 1fr; gap: 2px; } dl.kv dd { margin-bottom: 8px; } }
+
+/* ---- pills and callouts --------------------------------------------------------------------- */
+.pill { display: inline-flex; align-items: center; gap: 6px; font-size: .75rem; font-weight: 600; letter-spacing: .02em; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface-2); color: var(--fg); white-space: nowrap; vertical-align: middle; }
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.pill.good { color: var(--good); border-color: color-mix(in srgb, var(--good) 35%, transparent); background: color-mix(in srgb, var(--good) 10%, transparent); } .pill.good::before { background: var(--good); }
+.pill.warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 35%, transparent); background: color-mix(in srgb, var(--warn) 10%, transparent); } .pill.warn::before { background: var(--warn); }
+.pill.crit { color: var(--crit); border-color: color-mix(in srgb, var(--crit) 35%, transparent); background: color-mix(in srgb, var(--crit) 10%, transparent); } .pill.crit::before { background: var(--crit); }
+.pill.info { color: var(--info); border-color: color-mix(in srgb, var(--info) 35%, transparent); background: color-mix(in srgb, var(--info) 10%, transparent); } .pill.info::before { background: var(--info); }
+.callout { display: grid; gap: 4px; padding: 12px 16px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--line); border-left-width: 4px; max-width: var(--measure); }
+.callout > .t { font-weight: 600; font-size: .9rem; }
+.callout.good { border-left-color: var(--good); } .callout.good > .t { color: var(--good); }
+.callout.warn { border-left-color: var(--warn); } .callout.warn > .t { color: var(--warn); }
+.callout.crit { border-left-color: var(--crit); } .callout.crit > .t { color: var(--crit); }
+.callout.info { border-left-color: var(--info); } .callout.info > .t { color: var(--info); }
+
+/* ---- tables ---------------------------------------------------------------------------------- */
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+th { font-size: .75rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; background: var(--surface-2); white-space: nowrap; }
+tbody tr:last-child td { border-bottom: 0; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+td code { white-space: nowrap; }
+.bar { display: inline-block; height: 10px; vertical-align: middle; border-radius: 2px; }
+.bar.add { background: var(--added); } .bar.del { background: var(--removed); }
+.bar-wrap { display: inline-flex; gap: 1px; width: 120px; max-width: 100%; }
+
+/* ---- findings (filterable) ------------------------------------------------------------------ */
+.filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.filters button { font: inherit; font-size: .8rem; padding: 4px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); cursor: pointer; }
+.filters button[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.finding { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.finding summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: auto auto 1fr; gap: 10px; align-items: baseline; padding: 10px 14px; }
+.finding summary::-webkit-details-marker { display: none; }
+.finding summary .id { font-family: var(--font-mono); font-size: .8rem; color: var(--muted); }
+.finding summary .h { font-weight: 500; min-width: 0; }
+.finding[open] summary { border-bottom: 1px solid var(--line); }
+.finding .body { padding: 12px 14px 14px; display: grid; gap: 10px; font-size: .95rem; }
+.finding .body dl.kv { font-size: .9rem; }
+.finding[hidden] { display: none; }
+@media (max-width: 560px) { .finding summary { grid-template-columns: auto 1fr; } .finding summary .h { grid-column: 1 / -1; } }
+
+/* ---- timeline / path ------------------------------------------------------------------------- */
+.timeline { list-style: none; padding: 0; display: grid; gap: 0; max-width: var(--measure); }
+.timeline li { position: relative; padding: 0 0 18px 28px; }
+.timeline li::before { content: ""; position: absolute; left: 7px; top: .55em; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); border: 2px solid var(--bg); box-shadow: 0 0 0 1px var(--accent); }
+.timeline li::after { content: ""; position: absolute; left: 11px; top: 1.2em; bottom: -2px; width: 1px; background: var(--line); }
+.timeline li:last-child::after { display: none; }
+.timeline .when { font-size: .8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.timeline .what { font-weight: 500; }
+.timeline li.crit::before { background: var(--crit); box-shadow: 0 0 0 1px var(--crit); }
+.timeline li.good::before { background: var(--good); box-shadow: 0 0 0 1px var(--good); }
+
+/* ---- code, diff, refs ------------------------------------------------------------------------ */
+.code { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+.code .fn { display: flex; justify-content: space-between; gap: 12px; font-family: var(--font-mono); font-size: .78rem; color: var(--muted); padding: 6px 12px; background: var(--surface-2); border-bottom: 1px solid var(--line); }
+.code pre { padding: 12px 14px; overflow-x: auto; line-height: 1.5; font-size: .85rem; }
+.code pre .add { background: color-mix(in srgb, var(--added) 14%, transparent); display: block; }
+.code pre .del { background: color-mix(in srgb, var(--removed) 14%, transparent); display: block; }
+.code pre .hl { background: color-mix(in srgb, var(--accent) 14%, transparent); display: block; }
+.ref { font-family: var(--font-mono); font-size: .8em; color: var(--muted); }
+
+/* ---- figures, diagrams, charts --------------------------------------------------------------- */
+figure { display: grid; gap: 8px; }
+figure img, figure svg { max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+figcaption { font-size: .85rem; color: var(--muted); max-width: var(--measure); }
+.diagram { overflow-x: auto; }
+.diagram svg { border: 0; background: none; }
+pre.mermaid { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; overflow-x: auto; font-size: .8rem; color: var(--muted); }
+pre.mermaid[data-processed] { color: inherit; }
+.bars { display: grid; grid-template-columns: max-content 1fr max-content; gap: 6px 12px; align-items: center; font-size: .875rem; max-width: 640px; }
+.bars .k { color: var(--muted); white-space: nowrap; }
+.bars .b { height: 12px; background: var(--surface-2); border-radius: 2px; overflow: hidden; }
+.bars .b > i { display: block; height: 100%; width: calc(var(--v) / var(--max) * 100%); background: var(--accent); border-radius: 2px; }
+.bars .b.good > i { background: var(--good); } .bars .b.warn > i { background: var(--warn); } .bars .b.crit > i { background: var(--crit); }
+.bars .n { font-variant-numeric: tabular-nums; text-align: right; }
+.gallery { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+
+/* ---- footer ---------------------------------------------------------------------------------- */
+footer { max-width: 1200px; margin: 48px auto 0; padding-top: 16px; border-top: 1px solid var(--line); font-size: .8rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 20px; }
+
+/* ---- print: a clean PDF from the browser ----------------------------------------------------- */
+@media print {
+  :root { --bg: #fff; --surface: #fff; --surface-2: #f2f2f2; --fg: #111; --muted: #555; --line: #ccc; --shadow: none; }
+  body { font-size: 11pt; padding: 0; }
+  .toc, .theme-toggle, .filters, .skip { display: none !important; }
+  .page { display: block; }
+  section { break-inside: avoid-page; }
+  h2 { break-after: avoid; }
+  details { display: block; } details > summary { list-style: none; } details:not([open]) > .body { display: grid; }
+  .finding .body { display: grid !important; }
+  a { color: inherit; } a[href^="http"]::after { content: " (" attr(href) ")"; font-size: .85em; color: #555; }
+  .tbl, .code, figure { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<!-- ======================= MASTHEAD: kind · repo · branch; title; lede; meta ======================= -->
+<header class="masthead">
+  <div class="top">
+    <div class="crumbs eyebrow">
+      <span>Ticket report</span><span class="sep">/</span><span>example-app</span><span class="sep">/</span><span>feat/ABC-123-import-links</span>
+    </div>
+    <button class="theme-toggle" type="button" id="theme-toggle" aria-label="Switch colour theme">Theme: auto</button>
+  </div>
+  <h1>Spreadsheet import keeps relationships</h1>
+  <p class="lede">Imported workbooks now preserve links between sheets instead of flattening them. Six commits, two services touched, one migration. Ready to merge once the backfill job is scheduled.</p>
+  <div class="meta">
+    <span>Ticket <b>ABC-123</b></span>
+    <span>As of <b>a1b2c3d</b> · 2026-11-06</span>
+    <span>Audience <b>reviewer</b></span>
+    <span>Branch <b>feat/ABC-123-import-links</b> vs <b>main</b></span>
+  </div>
+</header>
+
+<div class="page">
+  <!-- ======================= TOC: one entry per section id, in order ======================= -->
+  <nav class="toc" aria-label="Contents">
+    <div class="eyebrow">Contents</div>
+    <ol>
+      <li><a href="#summary">Summary</a></li>
+      <li><a href="#what-changed">What changed</a></li>
+      <li><a href="#how-it-works">How it works</a></li>
+      <li><a href="#evidence">How it was tested</a></li>
+      <li><a href="#review">Review findings</a></li>
+      <li><a href="#risks">Risks and follow-ups</a></li>
+      <li><a href="#appendix">Appendix</a></li>
+    </ol>
+  </nav>
+
+  <article id="main">
+    <!-- ======================= SUMMARY: verdict, then stats only if numbers are the point ======================= -->
+    <section id="summary">
+      <h2>Summary</h2>
+      <div class="verdict good" role="status">
+        <span class="label">Ready with notes</span>
+        <div>Behaviour matches the acceptance criteria; the self-review found no Blockers. One Should-fix (idempotency of the backfill) is fixed in <code>e5f6a7b</code>. Schedule the backfill before enabling the flag for tenants with existing imports.</div>
+      </div>
+      <div class="stats">
+        <div class="stat"><span class="v num">6</span><span class="k">commits</span></div>
+        <div class="stat"><span class="v num">14</span><span class="k">files changed</span><span class="d"><span style="color:var(--added)">+412</span> / <span style="color:var(--removed)">−96</span></span></div>
+        <div class="stat"><span class="v num">9</span><span class="k">tests added</span><span class="d up">all green</span></div>
+        <div class="stat"><span class="v num">0</span><span class="k">open blockers</span></div>
+      </div>
+      <p>The import pipeline previously wrote every sheet as an independent table, so a workbook with lookups between sheets lost those lookups. The change records the relationship at parse time, stores it beside the table, and the preview shows which columns became links.</p>
+    </section>
+
+    <!-- ======================= WHAT CHANGED: commits, files with +/- bars ======================= -->
+    <section id="what-changed">
+      <h2>What changed</h2>
+      <div class="tbl">
+        <table>
+          <thead><tr><th>Commit</th><th>Message</th><th>Area</th></tr></thead>
+          <tbody>
+            <tr><td><code>a1b2c3d</code></td><td>feat(ABC-123): record sheet relationships at parse time</td><td>services/import</td></tr>
+            <tr><td><code>b2c3d4e</code></td><td>feat(ABC-123): store relationship rows with the table</td><td>services/import, migrations</td></tr>
+            <tr><td><code>c3d4e5f</code></td><td>feat(ABC-123): preview marks link columns</td><td>apps/web</td></tr>
+            <tr><td><code>e5f6a7b</code></td><td>fix(ABC-123): backfill is idempotent on re-run</td><td>services/import</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="tbl">
+        <table>
+          <thead><tr><th>File</th><th class="num">+</th><th class="num">−</th><th>Change</th></tr></thead>
+          <tbody>
+            <!-- bar widths scale to the largest row: width = lines / max × 120px -->
+            <tr><td><code>services/import/parse/relations.ts</code></td><td class="num">188</td><td class="num">0</td><td><span class="bar-wrap"><span class="bar add" style="width:120px"></span></span></td></tr>
+            <tr><td><code>services/import/store/relations.ts</code></td><td class="num">96</td><td class="num">12</td><td><span class="bar-wrap"><span class="bar add" style="width:61px"></span><span class="bar del" style="width:8px"></span></span></td></tr>
+            <tr><td><code>apps/web/import/Preview.tsx</code></td><td class="num">74</td><td class="num">40</td><td><span class="bar-wrap"><span class="bar add" style="width:47px"></span><span class="bar del" style="width:26px"></span></span></td></tr>
+            <tr><td><code>migrations/0042_relations.sql</code></td><td class="num">31</td><td class="num">0</td><td><span class="bar-wrap"><span class="bar add" style="width:20px"></span></span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ======================= HOW IT WORKS: the path, a diagram, a code excerpt ======================= -->
+    <section id="how-it-works">
+      <h2>How it works</h2>
+      <ol class="timeline">
+        <li><div class="what">Workbook uploaded <span class="ref">apps/web/import/Upload.tsx:41</span></div><div>The file goes to the import service unchanged; nothing is parsed in the browser.</div></li>
+        <li><div class="what">Parse records relationships <span class="ref">services/import/parse/relations.ts:22</span></div><div>Each cross-sheet formula becomes a <code>Relation {fromSheet, fromColumn, toSheet, toKey}</code>. Formulas that reference a sheet outside the workbook are skipped and counted.</div></li>
+        <li><div class="what">Store beside the table <span class="ref">services/import/store/relations.ts:58</span></div><div>Relations are written in the same transaction as the table rows, keyed by <code>(tenant_id, import_id, from_sheet, from_column)</code>, so a retry upserts instead of duplicating.</div></li>
+        <li class="good"><div class="what">Preview marks link columns <span class="ref">apps/web/import/Preview.tsx:103</span></div><div>Columns with a relation get a link icon and a tooltip naming the target sheet.</div></li>
+      </ol>
+      <figure class="diagram">
+        <!-- Inline SVG: real component names, arrows carry the data shape. Colours come from tokens via currentColor and CSS vars. -->
+        <svg viewBox="0 0 720 150" width="720" role="img" aria-labelledby="dg1">
+          <title id="dg1">Workbook to preview: upload, parse, store, preview</title>
+          <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker></defs>
+          <g fill="none" stroke="currentColor" stroke-width="1.2" font-family="IBM Plex Sans, system-ui, sans-serif" font-size="13">
+            <rect x="10" y="40" width="150" height="54" rx="6" fill="var(--surface)"/><text x="85" y="72" text-anchor="middle" fill="currentColor" stroke="none">Upload (web)</text>
+            <rect x="200" y="40" width="150" height="54" rx="6" fill="var(--surface)"/><text x="275" y="66" text-anchor="middle" fill="currentColor" stroke="none">parse/relations</text><text x="275" y="84" text-anchor="middle" fill="var(--muted)" stroke="none" font-size="11">Relation[]</text>
+            <rect x="390" y="40" width="150" height="54" rx="6" fill="var(--surface)"/><text x="465" y="66" text-anchor="middle" fill="currentColor" stroke="none">store/relations</text><text x="465" y="84" text-anchor="middle" fill="var(--muted)" stroke="none" font-size="11">one transaction</text>
+            <rect x="580" y="40" width="130" height="54" rx="6" fill="var(--surface)"/><text x="645" y="72" text-anchor="middle" fill="currentColor" stroke="none">Preview</text>
+            <path d="M160 67H198" marker-end="url(#arr)"/><text x="179" y="60" text-anchor="middle" fill="var(--muted)" stroke="none" font-size="11">xlsx</text>
+            <path d="M350 67H388" marker-end="url(#arr)"/><path d="M540 67H578" marker-end="url(#arr)"/>
+            <path d="M465 94V120H85V96" marker-end="url(#arr)" stroke-dasharray="4 3"/><text x="275" y="134" text-anchor="middle" fill="var(--muted)" stroke="none" font-size="11">skipped-formula count back to the UI</text>
+          </g>
+        </svg>
+        <figcaption>Relations travel with the table rows and are committed together; the count of skipped formulas returns to the preview so the user sees what was not linked.</figcaption>
+      </figure>
+      <div class="code">
+        <div class="fn"><span>services/import/store/relations.ts</span><span>lines 58–71</span></div>
+<pre><code>export async function upsertRelations(tx, importId, rels) {
+<span class="hl">  // Keyed on the source cell, so a retried import updates rather than duplicates.</span>
+  for (const r of rels) {
+    await tx.relations.upsert({
+      where: { tenantId_importId_fromSheet_fromColumn: key(tx.tenantId, importId, r) },
+      update: { toSheet: r.toSheet, toKey: r.toKey },
+      create: { ...r, importId, tenantId: tx.tenantId },
+    });
+  }
+}</code></pre>
+      </div>
+    </section>
+
+    <!-- ======================= EVIDENCE: what was run, what it proved; screenshots as figures ======================= -->
+    <section id="evidence">
+      <h2>How it was tested</h2>
+      <div class="tbl">
+        <table>
+          <thead><tr><th>Check</th><th>Command</th><th>Result</th></tr></thead>
+          <tbody>
+            <tr><td>Unit: relations parsed from fixtures</td><td><code>pnpm test services/import</code></td><td><span class="pill good">41 passed</span></td></tr>
+            <tr><td>Run it twice: re-import same workbook</td><td><code>pnpm test -t "idempotent"</code></td><td><span class="pill good">passed</span></td></tr>
+            <tr><td>Typecheck</td><td><code>pnpm -r typecheck</code></td><td><span class="pill good">clean</span></td></tr>
+            <tr><td>e2e: preview shows link columns</td><td><code>pnpm e2e import-preview</code></td><td><span class="pill good">1 passed</span></td></tr>
+            <tr><td>Backfill on a seeded tenant with 2,000 imports</td><td>manual, staging</td><td><span class="pill warn">not run</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="gallery">
+        <figure><img alt="Import preview with two link columns marked" src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='360'%3E%3Crect width='640' height='360' fill='%23eef1f4'/%3E%3Ctext x='320' y='186' text-anchor='middle' font-family='sans-serif' font-size='18' fill='%235a6572'%3Escreenshot placeholder%3C/text%3E%3C/svg%3E"><figcaption>Preview after upload: the two columns with cross-sheet lookups carry the link marker.</figcaption></figure>
+      </div>
+    </section>
+
+    <!-- ======================= FINDINGS: severity filter, one <details> per finding ======================= -->
+    <section id="review">
+      <h2>Review findings</h2>
+      <div class="filters" role="group" aria-label="Filter by severity">
+        <button type="button" data-filter="all" aria-pressed="true">All (3)</button>
+        <button type="button" data-filter="crit" aria-pressed="false">Blocker (0)</button>
+        <button type="button" data-filter="warn" aria-pressed="false">Should fix (1)</button>
+        <button type="button" data-filter="info" aria-pressed="false">Minor (2)</button>
+      </div>
+      <details class="finding" data-sev="warn" open>
+        <summary><span class="pill warn">Should fix</span><span class="id">C-01</span><span class="h">Backfill duplicated relations on re-run</span></summary>
+        <div class="body">
+          <dl class="kv">
+            <dt>Where</dt><dd><code>services/import/jobs/backfill.ts:40</code></dd>
+            <dt>Why it matters</dt><dd>A retried job inserted a second row per relation; the preview then showed two link markers per column.</dd>
+            <dt>Status</dt><dd><span class="pill good">Fixed</span> in <code>e5f6a7b</code>: the job now calls <code>upsertRelations</code>.</dd>
+          </dl>
+        </div>
+      </details>
+      <details class="finding" data-sev="info">
+        <summary><span class="pill info">Minor</span><span class="id">M-01</span><span class="h">Skipped-formula count is not surfaced in the API response</span></summary>
+        <div class="body"><p>The count reaches the preview through the WebSocket only; a client using the REST import endpoint cannot see it. Deferred to ABC-131.</p></div>
+      </details>
+      <details class="finding" data-sev="info">
+        <summary><span class="pill info">Minor</span><span class="id">M-02</span><span class="h">Fixture workbook has a sheet named after a real-looking company</span></summary>
+        <div class="body"><p>Renamed to <code>Suppliers</code> in <code>c3d4e5f</code>.</p></div>
+      </details>
+      <div class="callout good"><div class="t">Checked, nothing found</div><div>Tenant isolation on every new query (filtered by <code>tenantId</code> from the session), no secrets in the diff, no debug leftovers, migration is reversible.</div></div>
+    </section>
+
+    <!-- ======================= RISKS: what could still go wrong, who owns the follow-up ======================= -->
+    <section id="risks">
+      <h2>Risks and follow-ups</h2>
+      <div class="callout warn"><div class="t">Backfill not run at scale</div><div>The job was tested on 40 imports. A tenant with 2,000 imports will run it for about 15 minutes; schedule it off-peak and watch the queue depth.</div></div>
+      <div class="bars" role="img" aria-label="Relations per workbook in the fixture set">
+        <!-- --v is the value, --max the largest value: the bar scales to it -->
+        <span class="k">small (5 sheets)</span><span class="b"><i style="--v:3;--max:120"></i></span><span class="n">3</span>
+        <span class="k">typical (18 sheets)</span><span class="b"><i style="--v:27;--max:120"></i></span><span class="n">27</span>
+        <span class="k">largest seen (64 sheets)</span><span class="b warn"><i style="--v:120;--max:120"></i></span><span class="n">120</span>
+      </div>
+      <ul>
+        <li><strong>Schedule the backfill</strong> for tenants with existing imports before enabling the flag. Owner: the on-call for imports.</li>
+        <li><strong>ABC-131</strong>: expose the skipped-formula count on the REST response.</li>
+        <li><strong>Unverified</strong>: behaviour with a workbook over the 50 MB upload cap was not tested; the parser is streamed, so it should hold.</li>
+      </ul>
+    </section>
+
+    <!-- ======================= APPENDIX: collapsed detail; the full file list, commands, glossary ======================= -->
+    <section id="appendix">
+      <h2>Appendix</h2>
+      <details>
+        <summary>All 14 changed files</summary>
+        <div class="tbl" style="margin-top:10px"><table><thead><tr><th>File</th><th class="num">+</th><th class="num">−</th></tr></thead><tbody>
+          <tr><td><code>services/import/parse/relations.ts</code></td><td class="num">188</td><td class="num">0</td></tr>
+          <tr><td><code>services/import/parse/relations.test.ts</code></td><td class="num">61</td><td class="num">0</td></tr>
+        </tbody></table></div>
+      </details>
+      <details>
+        <summary>How to regenerate this report</summary>
+        <div class="code" style="margin-top:10px"><pre><code>/dimi:report ABC-123 --audience reviewer</code></pre></div>
+      </details>
+      <!-- Optional Mermaid diagram. Rendered by the script at the end of the file when the reader is online; the source stays readable otherwise. -->
+      <details>
+        <summary>Sequence of the retry path</summary>
+<pre class="mermaid">sequenceDiagram
+  participant W as web
+  participant I as import service
+  participant D as db
+  W->>I: POST /imports (xlsx)
+  I->>D: BEGIN; insert rows; upsert relations; COMMIT
+  I-->>W: 201 {importId, skippedFormulas}
+  W->>I: POST /imports (same xlsx, retry)
+  I->>D: upsert relations (no duplicates)
+</pre>
+      </details>
+    </section>
+  </article>
+</div>
+
+<footer>
+  <span>Generated by <code>/dimi:report</code> on 2026-11-06 from commit <code>a1b2c3d</code></span>
+  <span>Every claim cites a path and line or a command that was run; items marked unverified were not checked.</span>
+</footer>
+
+<script>
+(function () {
+  // Theme: auto (follows the OS) → light → dark, remembered per browser. Works without storage too.
+  var root = document.documentElement, btn = document.getElementById('theme-toggle');
+  var order = ['auto', 'light', 'dark'], cur = 'auto';
+  try { cur = localStorage.getItem('dimi-report-theme') || 'auto'; } catch (e) {}
+  function apply(t) { if (t === 'auto') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', t); if (btn) btn.textContent = 'Theme: ' + t; try { localStorage.setItem('dimi-report-theme', t); } catch (e) {} }
+  apply(cur);
+  if (btn) btn.addEventListener('click', function () { cur = order[(order.indexOf(cur) + 1) % order.length]; apply(cur); });
+
+  // TOC: mark the section in view.
+  var links = Array.prototype.slice.call(document.querySelectorAll('.toc a[href^="#"]'));
+  var secs = links.map(function (a) { return document.getElementById(a.getAttribute('href').slice(1)); }).filter(Boolean);
+  function mark(id) { links.forEach(function (a) { a.setAttribute('aria-current', a.getAttribute('href') === '#' + id ? 'true' : 'false'); }); }
+  if ('IntersectionObserver' in window && secs.length) {
+    var io = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) mark(e.target.id); }); }, { rootMargin: '-10% 0px -70% 0px' });
+    secs.forEach(function (s) { io.observe(s); });
+  }
+
+  // Findings filter.
+  var filters = document.querySelectorAll('.filters button[data-filter]');
+  Array.prototype.forEach.call(filters, function (b) {
+    b.addEventListener('click', function () {
+      var f = b.getAttribute('data-filter');
+      Array.prototype.forEach.call(filters, function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+      Array.prototype.forEach.call(document.querySelectorAll('.finding'), function (d) { d.hidden = !(f === 'all' || d.getAttribute('data-sev') === f); });
+    });
+  });
+
+  // Mermaid, only if a block exists and the reader is online; the source stays visible otherwise.
+  if (document.querySelector('pre.mermaid')) {
+    var s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.4.1/mermaid.min.js';
+    s.onload = function () {
+      var dark = root.getAttribute('data-theme') === 'dark' || (!root.getAttribute('data-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      window.mermaid.initialize({ startOnLoad: false, theme: dark ? 'dark' : 'neutral', securityLevel: 'strict' });
+      window.mermaid.run({ querySelector: 'pre.mermaid' });
+    };
+    document.head.appendChild(s);
+  }
+})();
+</script>
+</body>
+</html>
