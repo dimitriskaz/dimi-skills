@@ -38,6 +38,8 @@ while IFS= read -r p; do
     FM=$(awk 'NR == 1 { next } /^---[[:space:]]*$/ { exit } { print }' "$p")
     printf '%s\n' "$FM" | grep -qE '^title:[[:space:]]*[^[:space:]]' || fail "$p: front matter has no title"
     printf '%s\n' "$FM" | grep -qE '^description:[[:space:]]*[^[:space:]]' || fail "$p: front matter has no description"
+    printf '%s\n' "$FM" | grep -E '^[A-Za-z][A-Za-z0-9_-]*:[[:space:]]+[^"'"'"'|>[{&*! ].*: ' | while IFS= read -r l; do printf 'FAIL    %s: front matter value needs quotes (it contains ": "): %s\n' "$p" "$l"; done
+    FMQ=$(printf '%s\n' "$FM" | grep -cE '^[A-Za-z][A-Za-z0-9_-]*:[[:space:]]+[^"'"'"'|>[{&*! ].*: '); FAILS=$((FAILS + FMQ))
   fi
   # prose lines (outside ``` or ~~~ fences), numbered
   PROSE=$(awk '/^[[:space:]]*(```|~~~)/ { f = !f; next } !f { print FNR ":" $0 }' "$p")

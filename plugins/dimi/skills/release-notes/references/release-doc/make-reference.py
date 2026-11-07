@@ -91,6 +91,13 @@ shd = OxmlElement('w:shd'); shd.set(qn('w:val'), 'clear'); shd.set(qn('w:color')
 ind = OxmlElement('w:ind'); ind.set(qn('w:left'), '260'); ind.set(qn('w:right'), '260'); ppr.append(ind)
 if 'Hyperlink' in S: font(S['Hyperlink'], color=ACCENT)
 
+# inline code (file types, text the user types): a size smaller than the body, on a light grey background
+if 'Verbatim Char' in S:
+    vc = S['Verbatim Char']; font(vc, 'Consolas', 9.5, INK)
+    vr = vc.element.get_or_add_rPr()
+    for old in vr.findall(qn('w:shd')): vr.remove(old)
+    sh = OxmlElement('w:shd'); sh.set(qn('w:val'), 'clear'); sh.set(qn('w:color'), 'auto'); sh.set(qn('w:fill'), 'EEF1F4'); vr.append(sh)
+
 # the cover shows the summary without an "Abstract" label
 at = S['Abstract Title'].element.get_or_add_rPr(); v = OxmlElement('w:vanish'); at.append(v)
 S['Abstract Title'].paragraph_format.space_after = Pt(0); S['Abstract Title'].paragraph_format.space_before = Pt(0)

@@ -39,6 +39,17 @@ def copy(m):
         name = f'{len(seen) + 1:02d}-{os.path.basename(full)}'; shutil.copyfile(full, os.path.join(b, 'img', name)); seen[full] = name
     return f'![{alt}](img/{seen[full]}){rest}'
 out = re.sub(r'!\[([^\]]*)\]\(([^)\s]+)\)(\{[^}]*\})?', copy, text)
+# front matter: quote every plain one-line value, so "2.4: what it does" cannot break the YAML
+fm = re.match(r'---\n(.*?)\n---\n', out, re.S)
+if fm:
+    import json
+    lines = []
+    for line in fm.group(1).split('\n'):
+        m = re.match(r'^([A-Za-z][\w-]*):[ \t]+(.+)$', line)
+        if m and m.group(2)[0] not in '"\'|>[{&*!':
+            line = f'{m.group(1)}: {json.dumps(m.group(2).strip(), ensure_ascii=False)}'
+        lines.append(line)
+    out = '---\n' + '\n'.join(lines) + '\n---\n' + out[fm.end():]
 open(os.path.join(b, 'source.md'), 'w', encoding='utf-8').write(out)
 print(len(seen), 'images copied')
 PY

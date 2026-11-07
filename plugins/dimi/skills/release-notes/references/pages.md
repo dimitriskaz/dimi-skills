@@ -12,7 +12,7 @@ title: Import a spreadsheet
 description: Bring a workbook into your workspace and keep the links between its sheets.
 ---
 ```
-Add the framework's own fields where the repo already uses them (`sidebar_position` in Docusaurus, `icon` in Mintlify, `sidebar.order` in Starlight). The `description` is the search snippet: one sentence on what the page lets the reader do.
+Quote a value that contains a colon followed by a space (`description: "Version 2.4: what changed"`): unquoted, it breaks the YAML and the docs build; the gate fails it. Add the framework's own fields where the repo already uses them (`sidebar_position` in Docusaurus, `icon` in Mintlify, `sidebar.order` in Starlight). The `description` is the search snippet: one sentence on what the page lets the reader do.
 
 ## Templates
 
