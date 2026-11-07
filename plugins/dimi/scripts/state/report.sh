@@ -29,13 +29,13 @@ else
   echo "- Ticket key: ticket regex disabled or invalid"
 fi
 # host/owner/repo only: a remote URL can carry user:token@ (CI, gh-configured clones), which must never reach a report
-REMOTE=$(git remote get-url origin 2>/dev/null | sed -E 's#^[a-z+]+://([^@/]*@)?##; s#^[^@/]*@##; s#^([^/:]+):#\1/#; s#\.git$##'); echo "- Remote: ${REMOTE:-none}"
+REMOTE=$(git remote get-url origin 2>/dev/null | sed -E 's#^[a-z+]+://([^@/]*@)?##; s#^[^@/]*@##; s#^([^/:]+):[0-9]+/#\1/#; s#^([^/:]+):#\1/#; s#\.git$##'); echo "- Remote: ${REMOTE:-none}"
 
 # The delta: an explicit range, else this branch against the default branch (merge base), else nothing.
 with_timeout 10 git fetch -q origin "$DB" >/dev/null 2>&1 || true
 BASE=
 if [ -n "$RANGE" ]; then
-  if git rev-list -n 1 "$RANGE" -- >/dev/null 2>&1; then echo "- Range: $RANGE"
+  if git rev-list -n 1 "$RANGE" -- >/dev/null 2>&1; then case "$RANGE" in *..*) echo "- Range: $RANGE" ;; *) echo "- Range: $RANGE (a single ref: the commits are its whole history, the diff is the working tree against it; give A..B for a delta)" ;; esac
   else echo "- Range: $RANGE is not a valid revision range here (unknown ref or unfetched branch): fix the range before writing anything about it"; RANGE=; BAD=1; fi
 fi
 if [ -n "${BAD-}" ]; then LOG=; STAT=
@@ -45,18 +45,17 @@ elif [ -n "$RANGE" ]; then
 elif git rev-parse -q --verify "origin/$DB" >/dev/null 2>&1 && [ "$B" != "$DB" ]; then
   BASE=$(git merge-base "origin/$DB" HEAD 2>/dev/null)
   if [ -z "$BASE" ]; then
-    echo "- Range: origin/$DB..HEAD has no merge base here (a shallow clone): run git fetch --unshallow, or --deepen, before a ticket report"
+    echo "- Range: origin/$DB..HEAD has no merge base here (a shallow clone, or unrelated histories): run git fetch --unshallow, or --deepen, before a ticket report"
     LOG=; STAT=
   else
     echo "- Range: origin/$DB..HEAD (merge base ${BASE:0:7}) plus uncommitted and untracked work"
     LOG=$(git log --no-merges --format='%h %ad %s' --date=short "origin/$DB..HEAD" -- 2>/dev/null | cap 60)
     # untracked regular files only (no links, no devices), capped, counted in one grep; /dev/null forces the path:count form
-    UNTRACKED=$(git -c core.quotePath=false ls-files --others --exclude-standard | grep -vE -- "$NEVER_DUMP_RE|$LOCAL_STATE_RE" | while IFS= read -r f; do [ -L "$f" ] || [ ! -f "$f" ] || printf '%s\n' "$f"; done)
+    UNTRACKED=$(git -c core.quotePath=false ls-files --others --exclude-standard | grep -vE -- "$NEVER_DUMP_RE|$LOCAL_STATE_RE" | grep -v '^"' | while IFS= read -r f; do [ -L "$f" ] || [ ! -f "$f" ] || printf '%s\n' "$f"; done)
     N_UNTRACKED=$(printf '%s\n' "$UNTRACKED" | grep -c .)
     STAT=$( { git_diff --numstat "$BASE" -- 2>/dev/null
       printf '%s\n' "$UNTRACKED" | head -n 500 | grep . | tr '\n' '\0' | xargs -0 -r grep -c '' -- /dev/null 2>/dev/null \
-        | awk '{ n = $0; sub(/.*:/, "", n); p = $0; sub(/:[0-9]+$/, "", p); if (p != "/dev/null") printf "%s\t0\t%s\n", n, p }'
-      [ "$N_UNTRACKED" -gt 500 ] && printf '0\t0\t… and %s more untracked files not counted\n' "$((N_UNTRACKED - 500))"; } )
+        | awk '{ n = $0; sub(/.*:/, "", n); p = $0; sub(/:[0-9]+$/, "", p); if (p != "/dev/null") printf "%s\t0\t%s\n", n, p }'; } )
   fi
 else
   echo "- Range: none (on the default branch or no origin/$DB); a ticket report needs a branch or an explicit range"
@@ -67,6 +66,7 @@ if [ -n "$STAT" ]; then
   TOT=$(printf '%s\n' "$STAT" | awk -F'\t' '{ if ($1 ~ /^[0-9]+$/) a += $1; if ($2 ~ /^[0-9]+$/) d += $2; n++ } END { printf "%d files, +%d / -%d lines", n, a, d }')
   echo "- Changed: $TOT"
   block "Changed files (added deleted path; '-' means binary)" "$(printf '%s\n' "$STAT" | sort -t"$(printf '\t')" -k1,1nr | cap 80)"
+  [ "${N_UNTRACKED:-0}" -gt 500 ] && echo "- Untracked files beyond the first 500 are listed nowhere above: $((N_UNTRACKED - 500)) more"
   block "Test files in the change" "$(printf '%s\n' "$STAT" | cut -f3 | grep -iE '(^|/)(tests?|__tests__|spec|e2e)(/|$)|\.(test|spec)\.[a-z]+$|_test\.(go|py|rs)$|^tests?/' | cap 40)"
 fi
 echo "- Uncommitted: $(git status --porcelain 2>/dev/null | grep -vE -- "$LOCAL_STATE_RE" | wc -l | tr -d ' ') paths (staged, unstaged or untracked)"

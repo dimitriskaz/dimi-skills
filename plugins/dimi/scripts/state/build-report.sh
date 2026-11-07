@@ -14,23 +14,30 @@ FILES=$(tracked_files)
 SRC=$(printf '%s\n' "$FILES" | grep -vE '(^|/)(node_modules|dist|build|vendor|\.next|coverage|generated)/|\.(lock|min\.js|map|snap)$|lock\.(json|yaml)$')
 
 echo "- Repository: $(basename "$T") · HEAD: $(git rev-parse --short HEAD 2>/dev/null || echo none) · branch: $(branch_name)"
+json_tool || echo "- Note: none of jq, python3 or node is on PATH, so package.json and composer.json dependencies were not read"
 block "Manifests" "$(printf '%s\n' "$FILES" | grep -E '(^|/)(package\.json|pyproject\.toml|requirements[^/]*\.txt|go\.mod|Cargo\.toml|pom\.xml|build\.gradle(\.kts)?|Gemfile|composer\.json)$' | cap 20)"
 
 # Dependencies that matter for a report: charts, tables, dates, data layer, exports. Read from the manifests only
 # (a lockfile would also list transitive packages, which are not the repository's choice): package.json through its
 # dependency keys, so a description or a script line never reads as a library; other manifests line by line, skipping
 # prose fields.
+MANIFESTS=$(printf '%s\n' "$FILES" | grep -E '(^|/)(package\.json|pyproject\.toml|requirements[^/]*\.txt|go\.mod|Cargo\.toml|Gemfile|composer\.json)$' | awk '{ print gsub("/", "/") "\t" $0 }' | sort -n | cut -f2-)   # shallowest first, so the root manifests survive the cap
+N_MANIFESTS=$(printf '%s\n' "$MANIFESTS" | grep -c .)
+[ "$N_MANIFESTS" -gt 40 ] && echo "- Note: $N_MANIFESTS manifests; only the 40 nearest the root were read for dependencies"
 dep_names() {
-  printf '%s\n' "$FILES" | grep -E '(^|/)(package\.json|pyproject\.toml|requirements[^/]*\.txt|go\.mod|Cargo\.toml|Gemfile|composer\.json)$' | head -40 | while IFS= read -r m; do
+  printf '%s\n' "$MANIFESTS" | head -40 | grep . | while IFS= read -r m; do
     case "$m" in
       *package.json|*composer.json)
         for k in dependencies devDependencies require require-dev; do json_get "$k" < "$m" | grep -oE '"[^"]+":' | tr -d '":'; done ;;
-      *) grep -viE '^[[:space:]]*("?(description|readme|summary|homepage|keywords|classifiers|authors|maintainers|license|url|scripts|name|version)"?[[:space:]]*[:=]|#)' -- "$m" 2>/dev/null ;;
+      *.toml)   # only the dependency tables: a [package] or [project] field called name or url is not a dependency
+        awk '/^[[:space:]]*\[/ { skip = ($0 ~ /^[[:space:]]*\[(package|project|tool\.|build-system|workspace)/ && $0 !~ /dependencies/) } !skip' -- "$m" 2>/dev/null ;;
+      *requirements*.txt) grep -vE '^[[:space:]]*(#|-)' -- "$m" 2>/dev/null ;;
+      *) grep -vE '^[[:space:]]*#' -- "$m" 2>/dev/null ;;
     esac
   done
 }
 DEPS=$(dep_names | tr -d '"')
-match_deps() { local m; m=$(printf '%s\n' "$DEPS" | grep -oiE -- "$1" | tr 'A-Z' 'a-z' | sed -E 's/^[^a-z@]+//; s/[^a-z0-9/.-]+$//' | sort -u | tr '\n' ' '); printf '%s' "${m:-none found}"; }
+match_deps() { local m; m=$(printf '%s\n' "$DEPS" | grep -oiE -- "$1" | tr 'A-Z' 'a-z' | sed -E 's/^[^a-z@]+//; s/[^a-z0-9.-]+$//' | sort -u | tr '\n' ' '); printf '%s' "${m:-none found}"; }
 echo "- Chart libraries: $(match_deps '(^|[^a-z0-9-])(recharts|chart\.js|react-chartjs-2|echarts|echarts-for-react|@nivo/[a-z-]+|victory|visx|@visx/[a-z-]+|d3|plotly(\.js|-js)?|apexcharts|highcharts|@mui/x-charts|@tremor/react|vega(-lite)?|observablehq/plot|lightweight-charts|matplotlib|plotly|altair|bokeh|seaborn|streamlit|dash|gradio|panel)([^a-z0-9-]|$)' | sed 's/^ *//')"
 echo "- Table and grid libraries: $(match_deps '(^|[^a-z0-9-])(@tanstack/react-table|@tanstack/table-core|ag-grid-[a-z]+|@mui/x-data-grid|react-data-grid|handsontable|@glideapps/glide-data-grid|mantine-react-table|material-react-table)([^a-z0-9-]|$)')"
 echo "- Component libraries and styling: $(match_deps '(^|[^a-z0-9-])(@mui/material|@mantine/core|@chakra-ui/react|antd|@radix-ui/[a-z-]+|@headlessui/react|@shadcn/ui|shadcn|tailwindcss|styled-components|@emotion/react|@vanilla-extract/css|@stitches/react|bootstrap|primereact|@fluentui/react|@carbon/react)([^a-z0-9-]|$)')"

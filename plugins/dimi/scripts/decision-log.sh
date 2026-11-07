@@ -23,7 +23,8 @@ row() {
 case "${1-}" in
   start) row start "${2-}" "run start on $(branch_name) at $(git rev-parse --short HEAD 2>/dev/null)" "" open; echo "$F" ;;
   done) [ $# -ge 3 ] || { echo "usage: decision-log.sh done '<met | not met: why>' <evidence>" >&2; exit 2; }
-        case "$2" in [Mm]et|[Mm]et[[:space:]:]*) V=green ;; [Nn]ot[[:space:]][Mm]et|[Nn]ot[[:space:]][Mm]et[[:space:]:]*) V=open ;; *) echo "done: the verdict starts with 'met' or 'not met'" >&2; exit 2 ;; esac
+        v=$(printf '%s' "$2" | tr 'A-Z' 'a-z' | tr -s '[:space:]' ' ')
+        case "$v" in met|met[[:space:][:punct:]]*) V=green ;; 'not met'|'not met'[[:space:][:punct:]]*) V=open ;; *) echo "done: the verdict starts with 'met' or 'not met'" >&2; exit 2 ;; esac
         row done "done check: $2" "" "$3" "$V"; echo "logged row $(($(grep -c '' "$F") - 1))" ;;
   add) [ $# -ge 6 ] || { echo "usage: decision-log.sh add <phase> <decision> <why> <evidence> <result>" >&2; exit 2; }; row "$2" "$3" "$4" "$5" "$6"; echo "logged row $(($(grep -c '' "$F") - 1))" ;;
   read) [ -f "$F" ] || { echo "no decision log for this repository"; exit 0; }
@@ -35,7 +36,7 @@ case "${1-}" in
   path) echo "$F" ;;
   commit) [ -f "$F" ] || { echo "no decision log to commit" >&2; exit 1; }
           D="${2:?usage: decision-log.sh commit <dir in the repo>}"
-          case "$D" in /*|-*|*..*) echo "commit: give a directory inside the repository, relative to its top" >&2; exit 2 ;; esac
+          case "$D" in /*|-*|*..*|.claude/.cache*|.claude/worktrees*) echo "commit: give a directory inside the repository, relative to its top (not the hook state under .claude/.cache)" >&2; exit 2 ;; esac
           mkdir -p "$T/$D" && D=$(cd "$T/$D" && pwd -P) || exit 1
           case "$D" in "$T"/*) ;; *) echo "commit: $D is outside the repository" >&2; exit 2 ;; esac
           cp "$F" "$D/decisions-$(safe_name "$(branch_name)").tsv" && echo "copied to $D/decisions-$(safe_name "$(branch_name)").tsv (stage and commit it yourself)" ;;

@@ -475,9 +475,15 @@ footer { max-width: 1200px; margin: 48px auto 0; padding-top: 16px; border-top: 
   var links = Array.prototype.slice.call(document.querySelectorAll('.toc a[href^="#"]'));
   var secs = links.map(function (a) { return document.getElementById(a.getAttribute('href').slice(1)); }).filter(Boolean);
   function mark(id) { links.forEach(function (a) { a.setAttribute('aria-current', a.getAttribute('href') === '#' + id ? 'true' : 'false'); }); }
-  function atBottom() { return window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2; }
+  function atBottom() { var h = document.documentElement.scrollHeight; return h > window.innerHeight + 2 && window.scrollY + window.innerHeight >= h - 2; }
+  if (secs.length) mark(secs[0].id);
   if ('IntersectionObserver' in window && secs.length) {
-    var io = new IntersectionObserver(function (es) { if (atBottom()) return mark(secs[secs.length - 1].id); es.forEach(function (e) { if (e.isIntersecting) mark(e.target.id); }); }, { rootMargin: '-10% 0px -70% 0px' });
+    // the topmost section in the band wins, so a page shorter than the viewport marks its first section, not its last
+    var io = new IntersectionObserver(function (es) {
+      if (atBottom()) return mark(secs[secs.length - 1].id);
+      var top = null; es.forEach(function (e) { if (e.isIntersecting && (top === null || e.boundingClientRect.top < top.boundingClientRect.top)) top = e; });
+      if (top) mark(top.target.id);
+    }, { rootMargin: '-10% 0px -70% 0px' });
     secs.forEach(function (s) { io.observe(s); });
     window.addEventListener('scroll', function () { if (atBottom()) mark(secs[secs.length - 1].id); }, { passive: true });
   }
@@ -496,14 +502,17 @@ footer { max-width: 1200px; margin: 48px auto 0; padding-top: 16px; border-top: 
   var blocks = Array.prototype.slice.call(document.querySelectorAll('pre.mermaid'));
   function isDark() { return root.getAttribute('data-theme') === 'dark' || (!root.getAttribute('data-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches); }
   // A block inside a closed <details> has no size, so it is rendered when it first becomes visible (and again when the theme changes).
+  var rendering = false;
   function renderMermaid() {
-    if (!window.mermaid) return;
+    if (!window.mermaid || rendering) return;
     var theme = isDark() ? 'dark' : 'neutral';
     var todo = blocks.filter(function (el) { return el.offsetParent !== null && (el.dataset.theme !== theme || !el.getAttribute('data-processed')); });
     if (!todo.length) return;
     todo.forEach(function (el) { if (el.dataset.src === undefined) el.dataset.src = el.textContent; el.removeAttribute('data-processed'); el.textContent = el.dataset.src; el.dataset.theme = theme; });
     window.mermaid.initialize({ startOnLoad: false, theme: theme, securityLevel: 'strict' });
-    window.mermaid.run({ nodes: todo });
+    rendering = true;
+    var done = function () { rendering = false; };
+    try { var r = window.mermaid.run({ nodes: todo }); if (r && r.then) r.then(done, done); else done(); } catch (e) { done(); }
   }
   if (blocks.length) {
     var s = document.createElement('script');
