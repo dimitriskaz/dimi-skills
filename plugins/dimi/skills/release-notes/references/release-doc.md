@@ -9,10 +9,10 @@ The source is Markdown with front matter, written by the skill; `scripts/release
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/release-doc.sh '<source .md>' '<output .docx>' '<template .docx or empty>' '<ticket_regex>' '<deny regex or empty>'
 ```
-It copies the source and its screenshots into a build folder beside the output, tags the screenshots as 2x images (so Word shows a panel at the size it has on screen), gates that copy, converts it with pandoc (2.11 or later) using the template, gives every picture a thin border, checks that every image made it in, and, when LibreOffice is installed, renders page previews into the build folder. It refuses an output path inside the repository. Without pandoc it stops with the install command for each platform; the Markdown source is still there to convert later.
+It copies the source and its screenshots into a build folder beside the output, tags the screenshots with a print resolution (so Word shows every one at 80% of its on-screen size, one consistent scale), keeps each step on the same page as its screenshot, gates that copy, converts it with pandoc (2.11 or later) using the template, gives every picture a thin border, checks that every image made it in, and, when LibreOffice is installed, renders page previews into the build folder. It refuses an output path inside the repository. Without pandoc it stops with the install command for each platform; the Markdown source is still there to convert later.
 
-- **Template**: the repo's own Word template when the `release_doc_template` option names one (its styles, fonts, colours, header and footer win), else the plugin's `release-doc/reference.docx`: Calibri, a dark title, blue section headings, captioned figures, a shaded "action required" box, table headers on a light fill, "Page X of Y" in the footer. A company template only needs these styles to look right: Title, Subtitle, Date, Abstract, Heading 1 to 3, Body Text, First Paragraph, Compact, Block Text, Image Caption, Table, Hyperlink.
-- **Contents**: a list of links to the sections, not a Word contents field. A contents field makes Word ask to "update the fields in this document" when it opens, which reads as a broken file to a customer.
+- **Template**: the repo's own Word template when the `release_doc_template` option names one (its styles, fonts, colours, header and footer win), else the plugin's `release-doc/reference.docx`: Calibri at 11 pt on one-inch margins, a left-aligned cover under an accent rule with no page number, section headings with a hairline under them, a contents column without bullets, figures with space above and a caption kept with them, a padded "action required" box, tables with a shaded header row and roomy cells, and "Page X of Y" in the footer from page 2. A company template only needs these styles to look right: Title, Subtitle, Date, Abstract, Heading 1 to 3, Body Text, First Paragraph, Compact, Contents Entry, Block Text, Captioned Figure, Image Caption, Table, Hyperlink, Footer.
+- **Contents**: a heading marked `{.contents}` and a list of links under it, which the build turns into a quiet column of links, not a Word contents field. A contents field makes Word ask to "update the fields in this document" when it opens, which reads as a broken file to a customer.
 - **Screenshots**: the ones the release run captured for its docs pages, referenced by their path in the published `img/` folder. A step screenshot sits indented under its step, as on a docs page; its alt text becomes the caption.
 
 ## The source
@@ -26,7 +26,7 @@ abstract: <two sentences: the headline change and who benefits; one more if any 
 description: What is new, improved and fixed in <Product> <version>.
 ---
 
-# Contents
+# Contents {.contents}
 
 - [Summary](#summary)
 - [Action required](#action-required)

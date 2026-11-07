@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # The Word release document for the release-notes skill: one .docx per release, written outside the repository.
 #   release-doc.sh <source .md> <output .docx> ['<template .docx>'] ['<ticket_regex>'] ['<deny regex>']
-# Copies the source and its screenshots into a build folder beside the output (screenshots tagged as 2x images so Word
-# shows them at their on-screen size), gates that copy (docs-check.sh, plus links that only work on a website), converts with
+# Copies the source and its screenshots into a build folder beside the output (screenshots tagged so Word shows each at
+# 80% of its on-screen size), gates that copy (docs-check.sh, plus links that only work on a website), converts with
 # pandoc using the template (the repo's own, else the plugin's), borders every picture, checks that every image made it
 # in, and, when LibreOffice is installed, renders page previews into the build folder to look at.
 . "$(dirname "$0")/lib.sh"
@@ -23,7 +23,7 @@ T=$(top); if [ -n "$T" ]; then case "$OUTD/" in "$T"/*) echo "refusing to write 
 if [ -n "$TPL" ]; then case "$TPL" in /*) ;; *) TPL="${T:-.}/$TPL" ;; esac; [ -f "$TPL" ] || { echo "no template at $TPL (the release_doc_template option)" >&2; exit 2; }
 else TPL="$RD/reference.docx"; fi
 
-# 1. a build folder with copies of the screenshots, tagged as 2x images
+# 1. a build folder with copies of the screenshots, tagged with their print resolution
 NAME=$(basename "$OUTF" .docx); B="$OUTD/.build-$NAME"; rm -rf "$B" && mkdir -p "$B/img" || exit 1
 SRCD=$(cd "$(dirname "$SRC")" && pwd -P)
 python3 - "$SRC" "$SRCD" "$B" <<'PY' || exit 1
