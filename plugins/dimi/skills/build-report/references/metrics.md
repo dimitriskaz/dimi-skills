@@ -108,7 +108,3 @@ Examples. Weak: "Queue health: red". Strong: "Critical: 18 orders past SLA, upda
 ## 6. Things reviewers reject
 
 A pie with eight slices. A gauge. A bar axis that starts above zero. A "+100%" against an empty comparison. "0" where the request failed. Exact figures next to a "data may be incomplete" banner. A dashboard query without the tenant filter. The same metric computed in the page and in the export. A dashboard built by hand in the BI tool and screenshotted. A date range cut in the browser's time zone. A chart library added when one is in the lockfile. A KPI tile with no comparison. Every tile a different saturated colour. The main comparison split across tabs. Six radial gauges where six aligned bars with target markers would do. A status that is only a colour. An alert that can be muted with no end and no reason.
-
-## 7. Sources
-
-The design judgment in this file (decision before chart, comparison context on every measure, dashboard roles, one-screen overview, position and length before colour, quiet all-good states, the operational status model) follows Stephen Few's work on information dashboard design, restated here for this skill's use.
