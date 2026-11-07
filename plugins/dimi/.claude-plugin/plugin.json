@@ -110,6 +110,12 @@
       "title": "Demo-only marker",
       "description": "Comment marker for shortcuts that must never reach the default branch, written as MARKER(<feature>): <why>. pr-self-review and commit-push-pr fail a production diff containing it; port drops such hunks.",
       "default": "DEMO-ONLY"
+    },
+    "companion_reviews": {
+      "type": "string",
+      "title": "Companion review passes",
+      "description": "What pr-self-review does when a recommended third-party plugin with a review rubric is installed (cursor-team-kit's thermo-nuclear maintainability review, ponytail's review). ask (default): ask the author once per review whether to run them as stage 5; always: run them without asking; never: only mention that they are installed. Findings are folded into the same report, prefixed TN- and PT-.",
+      "default": "ask"
     }
   }
 }

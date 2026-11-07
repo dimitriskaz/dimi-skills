@@ -14,6 +14,8 @@ The end-of-work command you run dozens of times a week. Pre-computes repo state 
 
 !`bash ${CLAUDE_PLUGIN_ROOT}/scripts/state/commit-push-pr.sh '${user_config.default_branch}' '${user_config.ticket_regex}' '${user_config.demo_branch}' '${user_config.demo_marker}' '${user_config.protected_branches}'`
 
+!`bash ${CLAUDE_PLUGIN_ROOT}/scripts/state/companions.sh`
+
 The "Latest self-review report" is the one the `LATEST` pointer names (defined in `pr-self-review/references/diff-and-policy.md` §3, written by `pr-self-review`); secret-looking lines use `SECRET_RE` from `scripts/lib.sh`, with tokens masked.
 
 ## Steps
@@ -33,7 +35,7 @@ The "Latest self-review report" is the one the `LATEST` pointer names (defined i
 
 4. **Commits**: propose the split (one logical change per commit; refactor before behaviour; UI after the API it needs). For each commit:
    - stage **explicit paths** (`git add path/one path/two`) — never `-A`, `.` or `-u`;
-   - message `type(KEY): description` in the imperative, under 72 characters, with a body of two to five lines on the *why* and anything a reviewer should look at first;
+   - message `type(KEY): description` in the imperative, under 72 characters, with a body of two to five lines on the *why* and anything a reviewer should look at first; when pstack is installed (the companions block above names its `unslop` path), read that file once and apply its patterns to every commit body and the PR body you draft, so the prose carries no AI tells;
    - show the planned commits and wait for a yes before running them. The `allowed-tools` grant lasts only the turn that invoked this skill, so after the yes the `git commit` / `git push` commands may prompt for permission; that is expected — never work around it.
 
 5. **Push**: `git push -u origin <branch>`. Never `--force` or `--force-with-lease`; if the push is rejected, stop and explain.
