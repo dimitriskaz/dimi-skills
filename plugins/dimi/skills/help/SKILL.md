@@ -31,6 +31,7 @@ If an argument was given, answer it: name the one or two skills that fit and the
 | debug | `/dimi:debug <symptom>` | no | Find a bug's root cause: failing test first, one hypothesis at a time |
 | walkthrough | `/dimi:walkthrough <module or flow>` | no | Explain part of the system end to end with code references and a diagram |
 | release-notes | `/dimi:release-notes [range] [--docs]` | **yes** | Release notes from merged work, with screenshots; `--docs` for illustrated product docs |
+| report | `/dimi:report [ticket, path, range or #pr]` | no | One self-contained HTML report about a ticket, codebase, review, investigation or release: verdict, what changed, how it works, evidence, findings, risks; reads offline, light and dark, prints to PDF |
 | poc | `/dimi:poc init\|mark\|sync\|push\|ledger\|status` | **yes** | Keep a long-lived demo branch honest: mark shortcuts, ledger, merge main in, push |
 | port | `/dimi:port <feature>` | **yes** | Bring a feature from the demo branch to the default branch properly |
 
