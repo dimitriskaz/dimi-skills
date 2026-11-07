@@ -51,15 +51,15 @@ Order: plan-from-ticket → (grill-me) → build → ui-states-review (agent-ui-
 | client-profile | `/dimi:client-profile [client]` | **yes** | Create the engagement profile the other skills read |
 | refresh-harness | `/dimi:refresh-harness [area]` | **yes** | Update the plugin's dated facts; only from a checkout of dimi-skills |
 
-## Companion plugins (third party, installed from the same marketplace)
+## Recommended marketplaces (third party, not part of dimi)
 
-When the user asks for one of these, or for what they do, name the install command; dimi does not contain them.
+When the user asks for one of these, or asks what else to install, give the exact commands; dimi does not contain them and cannot run them.
 
-| Plugin | Install | What it is | Entry command after install |
+| Plugin | Commands | What it is | Entry command after install |
 | --- | --- | --- | --- |
-| ponytail | `/plugin install ponytail@dimi-skills` | The least code that works: a ladder (exists already, standard library, platform, installed dependency, one line, minimum), a never-cut list, `shortcut:` markers with a debt ledger, a diff review that reads around the diff | `/ponytail full`, `/ponytail-review`, `/ponytail-audit`, `/ponytail-debt` |
-| pstack | `/plugin install pstack@dimi-skills` | Goal in, playbook out, with evidence; named principles to steer with ("apply subtract before you add"); decision log and overnight contract for unattended runs; `unslop`, `no-comments`, `tdd`, benchmark checklist | `/pstack:poteto-mode <goal and done check>`, `/pstack:poteto-help` |
-| cursor-team-kit | `/plugin install cursor-team-kit@dimi-skills` | A very strict maintainability review (structure, branching, 1,000-line files, wrappers, casts, layers) plus `deslop`, `verify-this`, `fix-ci`, `loop-on-ci`, `review-and-ship`, `what-did-i-get-done`, `weekly-review`; written for Cursor, loads in Claude Code without its rules | `/cursor-team-kit:thermo-nuclear-code-quality-review` |
+| ponytail | `/plugin marketplace add DietrichGebert/ponytail` then `/plugin install ponytail@ponytail` | The least code that works: a ladder (exists already, standard library, platform, installed dependency, one line, minimum), a never-cut list, `shortcut:` markers with a debt ledger, a diff review that reads around the diff | `/ponytail full`, `/ponytail-review`, `/ponytail-audit`, `/ponytail-debt` |
+| pstack | `/plugin marketplace add cursor/plugins` then `/plugin install pstack@cursor-plugins` | Goal in, playbook out, with evidence; named principles to steer with ("apply subtract before you add"); decision log and overnight contract for unattended runs; `unslop`, `no-comments`, `tdd`, benchmark checklist | `/pstack:poteto-mode <goal and done check>`, `/pstack:poteto-help` |
+| cursor-team-kit | not in Cursor's Claude Code marketplace: copy `cursor-team-kit/skills/thermo-nuclear-code-quality-review/` from `cursor/plugins` into `~/.claude/skills/`, or declare the inline marketplace shown in the dimi-skills README and `/plugin install cursor-team-kit@cursor-team-kit` | A very strict maintainability review (structure, branching, 1,000-line files, wrappers, casts, layers) plus `deslop`, `verify-this`, `fix-ci`, `loop-on-ci`, `review-and-ship`, `what-did-i-get-done`, `weekly-review` | `/thermo-nuclear-code-quality-review` (skills dir) or `/cursor-team-kit:thermo-nuclear-code-quality-review` |
 
 Overlaps: ponytail's review and pstack's playbooks parallel `pr-self-review` and the dimi loop; suggest one per task. The thermo-nuclear review covers structure, which `pr-self-review` does not, so it runs well after it.
 
