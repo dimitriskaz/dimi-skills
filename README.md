@@ -36,23 +36,41 @@ Install at **user** scope by default. Use **project** scope in team repositories
 - The `version` in `plugins/dimi/.claude-plugin/plugin.json` controls updates: users stay on a version until it is bumped.
 - To pin to a release, add the marketplace with a ref: `/plugin marketplace add dimitriskaz/dimi-skills#v1.8.0`.
 
-## Companion plugins
+## Recommended marketplaces
 
-The marketplace also lists three third-party plugins, so they install from the same place. They are not copied into dimi and not maintained here; each installs from its own repository under its own MIT licence, and its skills keep their own prefix.
+dimi is one plugin. These third-party marketplaces pair well with it; each is installed from its own repository, keeps its own prefix and its own licence (all MIT), and nothing from them is copied into dimi.
 
-```
-/plugin install ponytail@dimi-skills          # /ponytail lite|full|ultra, /ponytail-review, /ponytail-audit, /ponytail-debt
-/plugin install pstack@dimi-skills            # /pstack:poteto-mode <goal and done check>, /pstack:poteto-help
-/plugin install cursor-team-kit@dimi-skills   # /cursor-team-kit:thermo-nuclear-code-quality-review, deslop, verify-this, fix-ci, …
-```
+| Marketplace | Add it | Install | What it gives you next to dimi |
+| --- | --- | --- | --- |
+| [ponytail](https://github.com/DietrichGebert/ponytail) | `/plugin marketplace add DietrichGebert/ponytail` | `/plugin install ponytail@ponytail` | A stance for *writing* code: the least code that works, climbed rung by rung (exists already, standard library, platform, installed dependency, one line, then the minimum), never cutting validation, data-loss handling, security or accessibility; `shortcut:` markers with a debt ledger; a cost band above the prompt. Entry: `/ponytail full`, `/ponytail-review`, `/ponytail-audit` |
+| [cursor/plugins](https://github.com/cursor/plugins) | `/plugin marketplace add cursor/plugins` | `/plugin install pstack@cursor-plugins` | pstack: state a goal and a checkable done condition and `/pstack:poteto-mode` picks the playbook and shows evidence; named principles to steer with mid-task; a decision log and overnight contract for unattended runs; `unslop`, `no-comments`, `tdd`, a benchmark checklist |
+| [cursor/plugins](https://github.com/cursor/plugins/tree/main/cursor-team-kit), cursor-team-kit | see below | see below | `thermo-nuclear-code-quality-review`, an unusually strict maintainability review (code-judo simplifications, branching growth, files past 1,000 lines, thin wrappers, casts, logic in the wrong layer), plus `deslop`, `verify-this`, `fix-ci`, `loop-on-ci`, `review-and-ship`, `what-did-i-get-done`, `weekly-review` |
 
-| Plugin | What it adds next to dimi | Overlap to know about |
-| --- | --- | --- |
-| [ponytail](https://github.com/DietrichGebert/ponytail) | A stance for *writing* code: the least code that works, climbed rung by rung (exists already, standard library, platform, installed dependency, one line, then the minimum), never cutting validation, data-loss handling, security or accessibility; `shortcut:` markers with a debt ledger; a cost band above the prompt | `/ponytail-review` and `pr-self-review` both review the diff; run dimi's as the gate and ponytail's for the "what to cut" pass. Ponytail installs its own hooks (status line, band), which run beside dimi's |
-| [pstack](https://github.com/cursor/plugins/tree/main/pstack) | A router: state a goal and a checkable done condition, `/pstack:poteto-mode` picks the playbook and shows evidence; named principles to steer with mid-task; a decision log and overnight contract for unattended runs; `unslop`, `no-comments`, `tdd`, a benchmark checklist | Its bug-fix, feature and PR playbooks parallel dimi's loop; use one or the other per task, not both. Installed from the Claude Code build at `harness/pstack/claude-code` in `cursor/plugins` |
-| [cursor-team-kit](https://github.com/cursor/plugins/tree/main/cursor-team-kit) | `thermo-nuclear-code-quality-review`, an unusually strict maintainability review (code-judo simplifications, branching growth, files past 1,000 lines, thin wrappers, casts, logic in the wrong layer), plus `deslop`, `verify-this`, `fix-ci`, `loop-on-ci`, `review-and-ship`, `what-did-i-get-done`, `weekly-review` | Written for Cursor and shipped without a Claude Code manifest: Claude Code loads its `skills/` and `agents/` directly and ignores its Cursor `rules/`; agent fields such as `model: fast` are Cursor's and may be ignored. The maintainability review complements `pr-self-review`, which does not cover structure |
+How they overlap with dimi: `/ponytail-review` and pstack's bug-fix, feature and PR playbooks parallel `pr-self-review` and the dimi loop, so use one per task; the thermo-nuclear review covers structure, which `pr-self-review` does not, so it runs well after it. Ponytail installs its own hooks (status line, band), which run beside dimi's.
 
-Before installing, read each plugin's repository: they run hooks and skills with the same access dimi has. They follow their upstream default branch and, like every third-party marketplace entry, do not auto-update; `claude plugin update <name>@dimi-skills` refreshes one. Pin one by adding `"ref"` or `"sha"` to its entry in `.claude-plugin/marketplace.json` in your fork.
+**cursor-team-kit** is written for Cursor and is not in Cursor's Claude Code marketplace file (only `pstack` and `origin-apps` are). Its `skills/` are plain `SKILL.md` files, so Claude Code can still load it two ways:
+
+- Quick, one skill: copy `cursor-team-kit/skills/thermo-nuclear-code-quality-review/` into `~/.claude/skills/`. It then runs as `/thermo-nuclear-code-quality-review` and is updated by copying again.
+- Whole kit, updatable: declare an inline marketplace in `~/.claude/settings.json`, then `/plugin install cursor-team-kit@cursor-team-kit`. Claude Code fetches only that subdirectory; with no Claude Code manifest in it, the entry acts as the manifest and its `skills/` and `agents/` load while its Cursor `rules/` are ignored.
+  ```json
+  {
+    "extraKnownMarketplaces": {
+      "cursor-team-kit": {
+        "source": {
+          "source": "settings",
+          "name": "cursor-team-kit",
+          "owner": { "name": "Cursor" },
+          "plugins": [
+            { "name": "cursor-team-kit", "description": "Cursor team kit: thermo-nuclear review, deslop, verify-this, CI and shipping skills",
+              "source": { "source": "git-subdir", "url": "cursor/plugins", "path": "cursor-team-kit" } }
+          ]
+        }
+      }
+    }
+  }
+  ```
+
+Read a plugin's repository before installing it: its hooks and skills run with the same access dimi has. Third-party marketplaces do not auto-update; `claude plugin update <plugin>@<marketplace>` refreshes one, and `/plugin` → Marketplaces turns auto-update on per marketplace.
 
 ## Using it on a repository
 
