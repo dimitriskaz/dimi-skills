@@ -1,7 +1,7 @@
 {
   "name": "dimi",
-  "version": "1.9.0",
-  "description": "Dimi's engineering toolkit for Claude Code. A reviewer-grade development loop (plan from a ticket, state-complete UI, pre-commit self-review, ship, address review, compound learnings into rules) with hooks and agents, plus forward-deployed engineering for LLM agents (harness reference, production-readiness review, MCP hardening, client profiles, fact refresh).",
+  "version": "1.10.0",
+  "description": "Dimi's engineering toolkit for Claude Code. A reviewer-grade development loop (plan from a ticket, state-complete UI, pre-commit self-review with a structure stage, ship, address review, compound learnings into rules) with hooks and agents, HTML reports and in-app dashboards, a decision log for unattended runs, plus forward-deployed engineering for LLM agents (harness reference, production-readiness review, MCP hardening, client profiles, fact refresh).",
   "author": {
     "name": "dimitriskaz",
     "url": "https://github.com/dimitriskaz"
@@ -14,12 +14,15 @@
     "chat-ui",
     "code-review",
     "compounding",
+    "dashboards",
     "debugging",
+    "decision-log",
     "demo-branch",
     "documentation",
     "evals",
     "fde",
     "hooks",
+    "maintainability",
     "mcp",
     "observability",
     "onboarding",
@@ -29,6 +32,7 @@
     "pre-commit",
     "rag",
     "release-notes",
+    "reports",
     "security",
     "streaming",
     "subagents",
@@ -108,6 +112,17 @@
       "title": "Demo-only marker",
       "description": "Comment marker for shortcuts that must never reach the default branch, written as MARKER(<feature>): <why>. pr-self-review and commit-push-pr fail a production diff containing it; port drops such hunks.",
       "default": "DEMO-ONLY"
+    },
+    "max_file_lines": {
+      "type": "string",
+      "title": "File size limit (lines)",
+      "description": "pr-structure-review flags any file in the diff that crosses this many lines in the change, or is already past it and grows, unless the PR says why. Non-numeric values fall back to 1000.",
+      "default": "1000"
+    },
+    "release_doc_template": {
+      "type": "string",
+      "title": "Release document Word template",
+      "description": "Path, relative to the repository top, of the company Word template (.docx) the release-notes skill builds the release document with: its styles, fonts, colours, header and footer. Empty uses the plugin's neutral template."
     }
   }
 }

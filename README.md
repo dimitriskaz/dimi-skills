@@ -6,7 +6,7 @@ A Claude Code plugin marketplace with one plugin, `dimi`: a reviewer-grade devel
 
 | Half | Skills | Also |
 | --- | --- | --- |
-| **Development loop** | `help`, `grill-me`, `plan-from-ticket`, `ui-states-review`, `agent-ui-review`, `tidy`, `pr-self-review` (+ `pr-correctness-scalability-review`, `pr-security-data-review`), `commit-push-pr`, `address-review`, `compound`, `debug`, `walkthrough`, `release-notes`, `poc`, `port`, `agent-tool-design`, `agent-bootstrap`, `agent-evals` | 6 agents (`explore`, `reviewer`, `verifier`, `spec-writer`, `implementer`, `debugger`); 5 hooks (format on edit, Stop gate, Bash guard, session banner, session-end note) |
+| **Development loop** | `help`, `grill-me`, `plan-from-ticket`, `ui-states-review`, `agent-ui-review`, `tidy`, `pr-self-review` (+ `pr-correctness-scalability-review`, `pr-structure-review`, `pr-security-data-review`), `commit-push-pr`, `address-review`, `compound`, `debug`, `decision-log`, `walkthrough`, `prose` (background), `release-notes`, `report`, `build-report`, `poc`, `port`, `agent-tool-design`, `agent-bootstrap`, `agent-evals` | 6 agents (`explore`, `reviewer`, `verifier`, `spec-writer`, `implementer`, `debugger`); 5 hooks (format on edit, Stop gate, Bash guard, session banner, session-end note) |
 | **Agent engineering** | `harness-reference`, `review-agent`, `harden-mcp`, `client-profile`, `refresh-harness` | reference library with "as of" dates; rubrics with tested fix patterns |
 
 They compose: `pr-self-review` calls `review-agent`/`harden-mcp` when a diff touches agent or MCP code; `agent-bootstrap` reads `harness-reference`; every skill honours `.claude/fde-client-profile.md`. Details: [plugins/dimi/README.md](plugins/dimi/README.md) and [docs/guide.md](docs/guide.md).

@@ -7,6 +7,7 @@
 #   review.sh record   <Out>                     point LATEST at the report once it is written
 #   review.sh worklist <Out>                     put address-review's worklist beside that report
 #   review.sh latest   <default_branch>          the newest self-review report (no build needed)
+#   review.sh sizes    <Out> [max_file_lines]     lines before and after for every file in the diff; marks files past the limit (pr-structure-review)
 # build saves its context in <Out>/context.env and prints it; every later step reads it from the <Out> it is
 # given, so the base, mode and options cannot drift between steps. Unconfigured options arrive as
 # `${user_config.<key>}` and count as unset.
@@ -135,6 +136,36 @@ worklist() {
   else cp "$W" "$(dirname "$R")/" && echo "copied beside $R"; fi
 }
 
+# sizes <Out> [max]: for each file in the diff, lines at the base and now, flagging files that crossed or grew past max
+# (default 1000). Untracked files count from 0. Binary files are skipped.
+sizes() {
+  load "${1-}"; MAX=$(opt "${2-}" 1000); case "$MAX" in ''|*[!0-9]*) MAX=1000 ;; esac
+  cd "$TOP" || exit 1
+  if [ -n "$N" ] && [ -z "$HEAD_REF" ]; then echo "sizes: the PR head was not fetched (the diff came from gh pr diff), so file sizes are unavailable; read sizes on GitHub"; return 0; fi
+  # name-status with rename detection: a moved file is measured against its old path, not reported as new
+  if [ -n "$HEAD_REF" ]; then LIST=$(git -c core.quotePath=false diff -M --name-status "$BASE" "$HEAD_REF" 2>/dev/null)
+  else LIST=$( { git -c core.quotePath=false diff -M --name-status "$BASE" 2>/dev/null; git -c core.quotePath=false ls-files --others --exclude-standard | grep -vE -- "$NEVER_DUMP_RE|$LOCAL_STATE_RE" | sed 's/^/A	/'; } ); fi
+  echo "File sizes (lines before → after; limit $MAX):"
+  printf '%s\n' "$LIST" | grep . | while IFS="$(printf '\t')" read -r st old new; do
+    case "$st" in R*|C*) ;; D*) continue ;; *) new=$old ;; esac
+    # numstat first: it prints "-<tab>-" for a binary file, which is then never read (an untracked one is compared
+    # with --no-index against /dev/null); a symlink is skipped too
+    [ -L "$new" ] && continue
+    if [ -n "$HEAD_REF" ]; then NS=$(git_diff --numstat "$BASE" "$HEAD_REF" -- "$new" 2>/dev/null)
+    elif git ls-files --error-unmatch -- "$new" >/dev/null 2>&1; then NS=$(git_diff -M --numstat "$BASE" -- "$old" "$new" 2>/dev/null)
+    else NS=$(git_diff --no-index --numstat /dev/null "$new" 2>/dev/null); fi
+    case "$NS" in -*) continue ;; esac
+    B=$(git show "$BASE:$old" 2>/dev/null | grep -c ''); B=${B:-0}
+    if [ -n "$HEAD_REF" ]; then A=$(git show "$HEAD_REF:$new" 2>/dev/null | grep -c '')
+    elif [ -f "$new" ]; then A=$(grep -c '' -- "$new" 2>/dev/null </dev/null); else A=0; fi; A=${A:-0}
+    FLAG=''
+    if [ "$B" -le "$MAX" ] && [ "$A" -gt "$MAX" ]; then FLAG="  <-- crossed $MAX in this change"
+    elif [ "$B" -gt "$MAX" ] && [ "$A" -gt "$B" ]; then FLAG="  <-- already past $MAX and grew"; fi
+    [ "$old" != "$new" ] && new="$new (was $old)"
+    printf '  %6s → %-6s %s%s\n' "$B" "$A" "$new" "$FLAG"
+  done | sort -k3,3nr
+}
+
 latest() {
   T=$(top) || { echo "not a git repository"; exit 0; }
   cd "$T" || exit 0
@@ -150,5 +181,6 @@ case "$CMD" in
   record) record "$@" ;;
   worklist) worklist "$@" ;;
   latest) latest "$@" ;;
-  *) echo "usage: review.sh build|gates|notes|record|worklist|latest … (see the header of this file)" >&2; exit 2 ;;
+  sizes) sizes "$@" ;;
+  *) echo "usage: review.sh build|gates|notes|record|worklist|latest|sizes … (see the header of this file)" >&2; exit 2 ;;
 esac

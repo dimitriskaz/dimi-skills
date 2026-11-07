@@ -33,7 +33,7 @@ The "Latest self-review report" is the one the `LATEST` pointer names (defined i
 
 4. **Commits**: propose the split (one logical change per commit; refactor before behaviour; UI after the API it needs). For each commit:
    - stage **explicit paths** (`git add path/one path/two`) — never `-A`, `.` or `-u`;
-   - message `type(KEY): description` in the imperative, under 72 characters, with a body of two to five lines on the *why* and anything a reviewer should look at first;
+   - message `type(KEY): description` in the imperative, under 72 characters, with a body of two to five lines on the *why* and anything a reviewer should look at first, written by the rules in `${CLAUDE_PLUGIN_ROOT}/skills/prose/SKILL.md`, as is the PR body;
    - show the planned commits and wait for a yes before running them. The `allowed-tools` grant lasts only the turn that invoked this skill, so after the yes the `git commit` / `git push` commands may prompt for permission; that is expected — never work around it.
 
 5. **Push**: `git push -u origin <branch>`. Never `--force` or `--force-with-lease`; if the push is rejected, stop and explain.

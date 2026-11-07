@@ -57,10 +57,15 @@ if [ -n "$TICKET_REGEX" ]; then
 else
   echo "Rules: CLAUDE.md is authoritative. Stage explicit paths, never 'git add -A'. Commit as type: description (no ticket key required here)."
 fi
-echo "Loop: /dimi:plan-from-ticket → (/dimi:grill-me) → build → /dimi:ui-states-review (UI) → /dimi:tidy → /dimi:pr-self-review → /dimi:commit-push-pr → /dimi:address-review → /dimi:compound · red? /dimi:debug · docs: /dimi:walkthrough, /dimi:release-notes · demo branch: /dimi:poc, /dimi:port · agents: /dimi:agent-evals. Most of these are manual-only: they are not in your skill list, so suggest the command (full list: /dimi:help). Rules in .claude/rules/ load per path."
+echo "Loop: /dimi:plan-from-ticket → (/dimi:grill-me) → build → /dimi:ui-states-review (UI) → /dimi:tidy → /dimi:pr-self-review → /dimi:commit-push-pr → /dimi:address-review → /dimi:compound · red? /dimi:debug · docs: /dimi:walkthrough, /dimi:release-notes, /dimi:report · dashboards: /dimi:build-report · demo branch: /dimi:poc, /dimi:port · agents: /dimi:agent-evals. Most of these are manual-only: they are not in your skill list, so suggest the command (full list: /dimi:help). Rules in .claude/rules/ load per path."
 if [ -n "$DEMO_BRANCH" ] && [ "$BRANCH" = "$DEMO_BRANCH" ]; then
   echo "This is the demo branch ($DEMO_BRANCH): merge-only, pushed with /dimi:poc push, never a PR base. Production work happens on a feature branch from $DEFAULT_BRANCH."
 fi
+_dl=".claude/.cache/decisions/$(project_key).tsv"   # fixed path: decision-log.sh runs without CLAUDE_PLUGIN_DATA
+# byte ranges for the truncation below, as literal bytes (sed has no portable octal escape): a lead byte, a 3-byte lead
+# with one continuation byte, a 4-byte lead with two, left dangling by a byte-based cut
+_lead=$(printf '\300-\377'); _cont=$(printf '\200-\277'); _lead3=$(printf '\340-\377'); _lead4=$(printf '\360-\377')
+if [ "$SOURCE" != "compact" ] && [ -s "$_dl" ] && [ "$(grep -c '' "$_dl")" -gt 1 ]; then echo "Decision log: $(awk -F'\t' 'NR == 1 { next } $2 == "start" { n = 0 } { n++ } END { print n + 0 }' "$_dl") rows in the current run, last: $(tail -n 1 "$_dl" | awk -F'\t' 'NF >= 6 { print substr($3 " " $6, 1, 120) }' | LC_ALL=C sed -E "s/[$_lead]\$//; s/[$_lead3][$_cont]\$//; s/[$_lead4][$_cont][$_cont]\$//") (read it: /dimi:decision-log read)"; fi
 [ -f .claude/fde-client-profile.md ] && echo "Client profile present: .claude/fde-client-profile.md — its constraints override defaults."
 if [ "$SOURCE" = "compact" ]; then
   echo "Context was just compacted: re-read the plan/notes for this ticket before continuing, and re-verify any claim you were relying on."

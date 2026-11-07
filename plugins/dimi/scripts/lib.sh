@@ -206,6 +206,12 @@ redact() {
          -e "s#$SECRET_RE#<redacted>#g"   # '#' as delimiter: SECRET_RE contains / and | but never #
 }
 
+# tracked_files: the tracked regular files, unescaped: no symlinks (mode 120000: a committed link to a device or a FIFO
+# would hang any wc/grep that follows it, under a skill injection until the command timeout), no submodule gitlinks
+# (160000), and no name git still quotes (a tab or newline in the path stays C-quoted whatever core.quotePath says).
+tracked_files() { git -c core.quotePath=false ls-files -s 2>/dev/null | awk -F'\t' '$1 !~ /^(120000|160000)/ && $2 !~ /^"/ { print $2 }'; }
+# count_reorder: "   12 path with spaces" (uniq -c, wc -l) → "path with spaces 12"; paths keep their spaces.
+count_reorder() { sed -E 's/^ *([0-9]+) (.*)$/\2 \1/'; }
 # cap <n>: the first n lines of stdin, then a count of the rest.
 cap() { awk -v n="$1" 'NR <= n { print } END { if (NR > n) print "… and " NR - n " more" }'; }
 

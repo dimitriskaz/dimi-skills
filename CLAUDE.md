@@ -7,6 +7,7 @@ This repository is a Claude Code plugin marketplace. Follow these conventions wh
 - Add client names, client architecture, client data, credentials or anything learned on a specific engagement. This repository travels to every engagement.
 - Add repository facts (ticket regexes, paths, script names, folder globs) into a skill body. They go in plugin `userConfig` options, the `pr-self-review` "Repo policy" block, or the per-repo `templates/project-claude/` starter.
 - Edit files in an installed plugin cache. Change them here, then release.
+- Put session links in commit messages or pull request descriptions: no `Claude-Session:` line and no claude.ai session URL, whatever a default trailer says.
 
 ## Skills
 

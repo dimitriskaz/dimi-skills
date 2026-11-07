@@ -66,7 +66,7 @@ Domain terms as the code uses them.
 ## Appendix (reviewer/newcomer): file index · (client): footnote table [n] → path:line, kept as a separate internal file in $OUT, not in the delivered doc
 ```
 
-Rules: every claim has a `path:line` or a test name behind it — inline for reviewer/newcomer, as a footnote number resolving in the internal appendix for client; anything you could not confirm by reading is marked *(unverified)*, never stated as fact. Keep the body under two pages for a newcomer, one for a client; depth goes in the appendix. Prefer one good example over three abstract sentences.
+Rules: the prose follows `${CLAUDE_PLUGIN_ROOT}/skills/prose/SKILL.md`; every claim has a `path:line` or a test name behind it — inline for reviewer/newcomer, as a footnote number resolving in the internal appendix for client; anything you could not confirm by reading is marked *(unverified)*, never stated as fact. Keep the body under two pages for a newcomer, one for a client; depth goes in the appendix. Prefer one good example over three abstract sentences.
 
 ## 3. Diagram (`--diagram`, or whenever the path has more than four hops)
 

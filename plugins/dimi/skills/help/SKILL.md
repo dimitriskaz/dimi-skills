@@ -25,16 +25,21 @@ If an argument was given, answer it: name the one or two skills that fit and the
 | pr-self-review | `/dimi:pr-self-review [#pr]` | no | Full review of the working tree or a PR before committing; report plus commit and PR drafts |
 | pr-correctness-scalability-review | `/dimi:pr-correctness-scalability-review` | no | Stage 2 of the self-review on its own |
 | pr-security-data-review | `/dimi:pr-security-data-review` | no | Stage 3 of the self-review on its own |
+| pr-structure-review | `/dimi:pr-structure-review` | no | Stage 2b on its own: did the change make the code harder to maintain (branching bolted on, wrong layer, wrappers, casts, files past the size limit, a reframing that deletes complexity) |
 | commit-push-pr | `/dimi:commit-push-pr [headline] [--ready]` | **yes** | Commit with explicit paths in the ticket format, push, open or update a draft PR |
 | address-review | `/dimi:address-review [#pr or pasted comments]` | **yes** | Work through a colleague's review: verify each comment against the code, fix by root cause, push back with evidence, draft replies to paste |
 | compound | `/dimi:compound [#pr]` | **yes** | Turn review findings and corrections into `.claude/rules/`, hooks or skills |
-| debug | `/dimi:debug <symptom>` | no | Find a bug's root cause: failing test first, one hypothesis at a time |
+| debug | `/dimi:debug <symptom>` | no | Find a bug's root cause: failing test first, a done check, one hypothesis at a time; a perf number is vetted before it is reported |
+| decision-log | `/dimi:decision-log start\|add\|read\|commit` | no | Append-only log of decisions with evidence for long or unattended runs, with the done check and escape hatch up front, and a morning read that leads with what needs attention |
 | walkthrough | `/dimi:walkthrough <module or flow>` | no | Explain part of the system end to end with code references and a diagram |
-| release-notes | `/dimi:release-notes [range] [--docs]` | **yes** | Release notes from merged work, with screenshots; `--docs` for illustrated product docs |
+| prose | (automatic) | n/a | House rules for PR bodies, release notes, reports and replies; background knowledge, not a command |
+| release-notes | `/dimi:release-notes [ticket key or range] [--docs] [--areas a,b]` | **yes** | Public product documentation and release notes: task pages per module and feature with a screenshot per step, getting started, roles, settings, limits, troubleshooting, glossary; a Word release document per release that explains the ticket's feature step by step with screenshots, the rest of the release in an appendix, written outside the repo; nothing internal in the published folder or the document, checked by a gate; `--docs` for the whole product, `--audience internal` for a team changelog |
+| report | `/dimi:report [ticket, path, range or #pr]` | no | One self-contained HTML report about a ticket, codebase, review, investigation or release: verdict, what changed, how it works, evidence, findings, risks; reads offline, light and dark, prints to PDF |
+| build-report | `/dimi:build-report [what the reader must decide] [--critique <route>]` | **yes** | Build a dashboard, reports page, scheduled report or BI definition inside the codebase, in its own stack: questions and the dashboard's role first, one tested metric registry, rollups that hold at real scale, KPIs with their comparison, charts by question, every widget state and the operational status model, exports from the same definitions; `--critique` judges an existing dashboard |
 | poc | `/dimi:poc init\|mark\|sync\|push\|ledger\|status` | **yes** | Keep a long-lived demo branch honest: mark shortcuts, ledger, merge main in, push |
 | port | `/dimi:port <feature>` | **yes** | Bring a feature from the demo branch to the default branch properly |
 
-Order: plan-from-ticket → (grill-me) → build → ui-states-review (agent-ui-review too for chat or agent screens) → tidy → pr-self-review → commit-push-pr → address-review → compound. `debug` whenever something is red.
+Order: plan-from-ticket → (grill-me) → build → ui-states-review (agent-ui-review too for chat or agent screens) → tidy → pr-self-review (stages 2, 2b, 3, 4) → commit-push-pr → address-review → compound. `debug` whenever something is red; `decision-log` whenever a run will not be watched.
 
 ## Building LLM agents
 
