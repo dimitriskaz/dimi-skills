@@ -1,6 +1,6 @@
 # Writing standard for public product documentation
 
-Every page in the published folder follows this. The reader is a customer, an administrator or an evaluator who knows their own job and has never seen the code. They arrive from a search with a task in mind and leave as soon as it is done.
+Every page in the published folder, and the Word release document, follows this. The reader is a customer, an administrator or an evaluator who knows their own job and has never seen the code. They arrive from a search with a task in mind and leave as soon as it is done.
 
 ## Voice
 

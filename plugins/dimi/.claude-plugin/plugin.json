@@ -118,6 +118,11 @@
       "title": "File size limit (lines)",
       "description": "pr-structure-review flags any file in the diff that crosses this many lines in the change, or is already past it and grows, unless the PR says why. Non-numeric values fall back to 1000.",
       "default": "1000"
+    },
+    "release_doc_template": {
+      "type": "string",
+      "title": "Release document Word template",
+      "description": "Path, relative to the repository top, of the company Word template (.docx) the release-notes skill builds the release document with: its styles, fonts, colours, header and footer. Empty uses the plugin's neutral template."
     }
   }
 }

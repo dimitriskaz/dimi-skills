@@ -1,7 +1,7 @@
 ---
 name: release-notes
-description: Public product documentation for an enterprise product, generated from the running app and kept current every release — task-based pages for every module and feature with a screenshot for each step, getting started, roles and permissions, settings, limits, troubleshooting and a glossary, plus public release notes per version — written for customers in the product's own words, with no code, ticket, PR, commit or environment reference anywhere in the published folder, and an internal trace kept outside it. Use before a release to update the docs and write the release notes, or with --docs to generate the whole product documentation.
-argument-hint: "[from..to | version] [--docs] [--areas a,b] [--audience public|internal] [--url <app url>] [--allow-host <host>] [--out <published docs folder>]"
+description: Public product documentation for an enterprise product, generated from the running app and kept current every release — task-based pages for every module and feature with a screenshot for each step, getting started, roles and permissions, settings, limits, troubleshooting and a glossary, public release notes per version, and a Word release document with screenshots to send customers — written for customers in the product's own words, with no code, ticket, PR, commit or environment reference anywhere in the published folder, and an internal trace kept outside it. Use before a release to update the docs and write the release notes, or with --docs to generate the whole product documentation.
+argument-hint: "[from..to | version] [--docs] [--areas a,b] [--audience public|internal] [--url <app url>] [--allow-host <host>] [--out <published docs folder>] [--doc-out <folder for the Word document>]"
 disable-model-invocation: true
 allowed-tools: Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/*)
 ---
@@ -12,7 +12,7 @@ The documentation customers, administrators and evaluators read on the public do
 
 **Everything in the published folder is public.** No file path, code identifier, PR or ticket number, commit hash, internal codename, team or employee name, environment name, feature-flag key or test-data label appears there. The trail from each sentence back to the work that shipped it lives in an internal trace outside the published folder.
 
-Triggers: `/dimi:release-notes`, "update the product docs", "write the release notes", "document this release with screenshots", "generate the user documentation", "what shipped since v1.4".
+Triggers: `/dimi:release-notes`, "update the product docs", "write the release notes", "the release document in Word", "document this release with screenshots", "generate the user documentation", "what shipped since v1.4".
 
 Never against production, never with real tenant data. Screenshots come from a local dev server or a preview deployment of a **seeded demo tenant**; the capture refuses hosts that are not on its allowlist: `localhost`, `127.0.0.1`, the host of the repo's Playwright `baseURL`, and any host passed explicitly with `--allow-host`. Nothing else is ever added by inference.
 
@@ -22,9 +22,10 @@ Never against production, never with real tenant data. Screenshots come from a l
 
 ## 1. Mode, audience and the two folders
 
-- **Mode.** A range (`v1.4.0..HEAD`; a version means from the last tag; nothing means last tag to `HEAD`) updates the pages the release touched, retakes their screenshots and writes the release notes page. `--docs` documents the whole product, for a first run or a full refresh. `--areas imports,billing` limits either mode to those modules.
+- **Mode.** A range (`v1.4.0..HEAD`; a version means from the last tag; nothing means last tag to `HEAD`) updates the pages the release touched, retakes their screenshots, writes the release notes page and builds the Word release document (§7). `--docs` documents the whole product, for a first run or a full refresh. `--areas imports,billing` limits either mode to those modules.
 - **Audience.** `public`, the default, is everything below. `--audience internal` writes only a team changelog (PR and ticket references on every line, an Internal section for refactors and tooling) to `tools/docs-capture/releases/<version>-internal.md`, with no public pages and no capture.
 - **Published folder** (`PUB` below): `--out`, else the docs location the repo's `CLAUDE.md` names, else the framework's published root from §0, else `docs/product/`. Every file inside it is published.
+- **Release document folder**: `--doc-out`, else the session's scratchpad directory if it gives one, else `<top>/../release-notes-<repo>/` next to the checkout. Never inside the repository: the Word document is a deliverable sent to customers, not a tracked file.
 - **Tools folder**: `tools/docs-capture/`, holding the capture spec and config, `scenes.json`, upload fixtures and `releases/<version>-trace.md`. It must sit outside every published folder. Check the framework's configuration (the Docusaurus docs path, MkDocs `docs_dir`, Mintlify navigation, Starlight's content folder) and say in the plan that the two do not overlap.
 - **The product's own words.** The product name, module names, UI labels and error messages come from the screen and the locale files listed in §0, never from component, route, table or flag names. Ask the author once for what is not on screen: the product name if it varies, the roles to document, the support contact the troubleshooting page points to.
 - **Constraints.** `.claude/fde-client-profile.md`, when present, decides what public text may say. The repo's `CLAUDE.md` may name a docs convention, a deny list of internal terms (codenames, team names) for the gate in §8, and the docs build command.
@@ -97,6 +98,11 @@ The capture has its own config, so the repo's own e2e run never picks it up. A f
 ## 7. Release notes and the trace
 
 - **Public**: `PUB/release-notes/<version>.md` from the template in `references/pages.md`: the date, a two-sentence summary, then New, Improved, Fixed, Breaking changes (each with what to do, in order), Deprecated and removed (with the date and the replacement), and Known limitations, each item linking to the page it changed. No PR, ticket or commit references.
+- **Word release document**: the same release, written to stand on its own for a customer who never opens the docs site: a cover with a two-sentence summary, a contents list, the summary and highlights, the action required with dates, every new feature with its steps and screenshots, improvements, fixes, settings and permissions, deprecations, known limitations, availability and support. Write its Markdown source from the template in [references/release-doc.md](references/release-doc.md) to `<release document folder>/<Product> <version> release notes.md`, using the screenshots this run captured, then build it:
+  ```bash
+  bash ${CLAUDE_PLUGIN_ROOT}/scripts/release-doc.sh '<source .md>' '<release document folder>/<Product> <version> release notes.docx' '${user_config.release_doc_template}' '${user_config.ticket_regex}' '<deny regex or empty>'
+  ```
+  It gates the source like a docs page, refuses links that only work on the website, converts with pandoc using the company template when the `release_doc_template` option names one, and renders page previews when LibreOffice is installed. Read every preview (or page through the document in Word) before the hand-off. Without pandoc it prints the install command; say so in the hand-off and leave the source ready to convert.
 - **Internal**: `tools/docs-capture/releases/<version>-trace.md`: a table from each public sentence to its PR, ticket and commit; the internal rows from §2; the scenes retaken; the open questions.
 - Propose the `CHANGELOG.md` entry in the repo's format and, if the repo's `CLAUDE.md` release steps say so, the version bump; propose, never commit.
 
@@ -113,6 +119,6 @@ It must report zero to fix before the hand-off. It fails a page on source paths,
 
 ## 9. Hand-off
 
-Report the pages created, updated and removed; the release notes path; a table of scenes (captured, retaken, failed); the open questions (facts not verified, labels not on screen); and the gate result. Offer `/dimi:commit-push-pr` with `docs(<KEY>): product docs and release notes for <version>` (the key from the branch name, matching `${user_config.ticket_regex}`), staging `PUB` and `tools/docs-capture/` only; never a signed-in state file and never `.claude/.cache/`.
+Report the pages created, updated and removed; the release notes path; the Word release document's path (or why it was not built); a table of scenes (captured, retaken, failed); the open questions (facts not verified, labels not on screen); and the gate result. Offer `/dimi:commit-push-pr` with `docs(<KEY>): product docs and release notes for <version>` (the key from the branch name, matching `${user_config.ticket_regex}`), staging `PUB` and `tools/docs-capture/` only; never a signed-in state file and never `.claude/.cache/`.
 
 Re-run on the next release: stable scene ids mean only the changed screens produce image diffs, and the gate keeps the published folder clean.

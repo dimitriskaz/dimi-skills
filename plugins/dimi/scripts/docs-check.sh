@@ -1,29 +1,33 @@
 #!/usr/bin/env bash
 # The publish gate for public product documentation (release-notes skill). Everything under <public dir> is published,
 # so nothing internal may be in it.
-#   docs-check.sh <public dir> '<ticket_regex>' ['<extra deny regex>']
+#   docs-check.sh <public dir | one page> '<ticket_regex>' ['<extra deny regex>']
 # FAIL (exit 1): a source path, a PR or ticket reference, a commit hash, a local or preview host, a test id, a working
 # marker, a local file path, an internal file in the folder, a missing image, an image without alt text, a page without
 # a title or description. REVIEW (printed, exit unaffected): environment-variable-shaped words, "staging", alt text
 # that reads like a file name, images no page uses, code blocks (each must be something a user types or sees).
 # Prose is checked outside fenced code blocks; front matter is checked too, since titles are published.
 . "$(dirname "$0")/lib.sh"
-D="${1:?usage: docs-check.sh <public dir> '<ticket_regex>' ['<extra deny regex>']}"
-[ -d "$D" ] || { echo "no directory $D" >&2; exit 2; }
+D="${1:?usage: docs-check.sh <public dir | one page> '<ticket_regex>' ['<extra deny regex>']}"
+[ -e "$D" ] || { echo "no such directory or page: $D" >&2; exit 2; }
 case "$D" in -*) D="./$D" ;; esac   # every path below starts with $D, so none can read as an option
 TR=$(resolve_tr "${2-}"); EXTRA=$(opt "${3-}")
 FAILS=0; REVIEWS=0
 fail()   { FAILS=$((FAILS + 1));   printf 'FAIL    %s\n' "$1"; }
 review() { REVIEWS=$((REVIEWS + 1)); printf 'REVIEW  %s\n' "$1"; }
 
+if [ -f "$D" ]; then PAGES=$D; IMAGES=''; else
 PAGES=$(find "$D" -type f \( -name '*.md' -o -name '*.mdx' \) 2>/dev/null | sort)
-IMAGES=$(find "$D" -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.gif' -o -iname '*.webp' -o -iname '*.svg' \) 2>/dev/null | sort)
+IMAGES=$(find "$D" -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.gif' -o -iname '*.webp' -o -iname '*.svg' \) 2>/dev/null | sort); fi
 
 # internal files that must never sit in a published folder
-find "$D" \( -name 'scenes.json' -o -name '*.spec.*' -o -name 'playwright*.config.*' -o -name '*-trace.md' -o -name '*-internal.md' \
-  -o -name '*.tsv' -o -name '*storageState*' -o -name '.auth' -o -name '.env*' \) 2>/dev/null | sort | while IFS= read -r f; do echo "$f"; done > "${TMPDIR:-/tmp}/docs-check-internal.$$"
-while IFS= read -r f; do [ -n "$f" ] && fail "$f: internal file inside the published folder (move it to the capture tooling folder)"; done < "${TMPDIR:-/tmp}/docs-check-internal.$$"
-rm -f "${TMPDIR:-/tmp}/docs-check-internal.$$"
+if [ -d "$D" ]; then
+  INTERNAL=$(find "$D" \( -name 'scenes.json' -o -name '*.spec.*' -o -name 'playwright*.config.*' -o -name '*-trace.md' -o -name '*-internal.md' \
+    -o -name '*.tsv' -o -name '*storageState*' -o -name '.auth' -o -name '.env*' \) 2>/dev/null | sort)
+  while IFS= read -r f; do [ -n "$f" ] && fail "$f: internal file inside the published folder (move it to the capture tooling folder)"; done <<EOF3
+$INTERNAL
+EOF3
+fi
 
 REFS=''
 while IFS= read -r p; do
@@ -66,7 +70,8 @@ while IFS= read -r p; do
   printf '%s\n' "$PROSE" | grep -oE '!\[[^]]*\]\([^) ]+' | while IFS= read -r m; do
     alt=${m#!\[}; alt=${alt%%\]*}; src=${m#*\](}
     case "$src" in http://*|https://*) continue ;; esac
-    [ -f "$DIR/$src" ] || printf 'FAIL    %s: image %s does not exist\n' "$p" "$src"
+    case "$src" in /*) f=$src ;; *) f=$DIR/$src ;; esac
+    [ -f "$f" ] || printf 'FAIL    %s: image %s does not exist\n' "$p" "$src"
     if [ -z "$alt" ]; then printf 'FAIL    %s: image %s has no alt text\n' "$p" "$src"
     elif printf '%s' "$alt" | grep -qiE '^(image|screenshot|img|picture|figure)?[ _-]*[0-9]*$|^[A-Za-z0-9_-]+\.(png|jpe?g|gif|webp|svg)$'; then printf 'REVIEW  %s: image %s: alt "%s" does not describe the picture\n' "$p" "$src" "$alt"; fi
   done
@@ -80,7 +85,8 @@ EOF2
 IMGFAIL=$(printf '%s\n' "$PAGES" | grep . | while IFS= read -r p; do DIR=$(dirname -- "$p")
   awk '/^[[:space:]]*(```|~~~)/ { f = !f; next } !f' "$p" | grep -oE '!\[[^]]*\]\([^) ]+' | while IFS= read -r m; do
     alt=${m#!\[}; alt=${alt%%\]*}; src=${m#*\](}; case "$src" in http://*|https://*) continue ;; esac
-    { [ -f "$DIR/$src" ] && [ -n "$alt" ]; } || echo x; done; done | grep -c x)
+    case "$src" in /*) f=$src ;; *) f=$DIR/$src ;; esac
+    { [ -f "$f" ] && [ -n "$alt" ]; } || echo x; done; done | grep -c x)
 FAILS=$((FAILS + IMGFAIL))
 
 # images no page uses
