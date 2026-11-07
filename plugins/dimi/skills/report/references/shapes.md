@@ -70,7 +70,7 @@ Subject: a range (`v1.4.0..HEAD`) or a version. Reader: customers, the support t
 | --- | --- | --- |
 | Summary | the headline change in the user's words, the counts (features, fixes, breaking), the date | `release-notes` output if present, the facts block |
 | Breaking changes and migration | exact steps in order with commands; who is affected | PR bodies, migrations in the range |
-| By module | what you can do now, Changed, Fixed, each with its PR reference; a screenshot per feature when `release-notes` captured one | merged PRs, `docs/releases/<version>/` |
+| By module | what you can do now, Changed, Fixed, each with its PR reference; a screenshot per feature when `release-notes` captured one | merged PRs, the release's trace in `tools/docs-capture/releases/` and its images in the published docs |
 | Settings and permissions | new options with defaults and where to set them; new scopes a customer must grant | PR bodies, config diffs |
 | Known limitations | deferred items with tickets | PR bodies |
 | Internal (collapsed) | refactors, dependency updates, tooling | the commit list |
