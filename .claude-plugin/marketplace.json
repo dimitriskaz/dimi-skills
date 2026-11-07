@@ -1,6 +1,6 @@
 {
   "name": "dimi-skills",
-  "description": "Dimi's Claude Code plugin: a reviewer-grade development loop with hooks and agents, and forward-deployed engineering for LLM agents. Also lists three third-party companion plugins (ponytail, pstack, cursor-team-kit) so they install from here.",
+  "description": "Dimi's Claude Code plugin: a reviewer-grade development loop with hooks and agents, and forward-deployed engineering for LLM agents.",
   "owner": {
     "name": "dimitriskaz",
     "url": "https://github.com/dimitriskaz"
@@ -29,55 +29,6 @@
         "security",
         "subagents",
         "ui-states"
-      ]
-    },
-    {
-      "name": "ponytail",
-      "source": {
-        "source": "github",
-        "repo": "DietrichGebert/ponytail"
-      },
-      "description": "Companion (third party, MIT, by Dietrich Gebert): the lazy-senior-dev stance for writing code. Climb a ladder (does it need to exist, is it already here, standard library, platform, installed dependency, one line, then the minimum), never cut validation, data-loss handling, security or accessibility, one small test for risky logic, a shortcut: marker with a debt ledger, and a diff review that reads the code around the diff. Installed from its own repository; dimi does not maintain it.",
-      "category": "companion",
-      "tags": [
-        "companion",
-        "less-code",
-        "yagni",
-        "review"
-      ]
-    },
-    {
-      "name": "pstack",
-      "source": {
-        "source": "git-subdir",
-        "url": "cursor/plugins",
-        "path": "harness/pstack/claude-code"
-      },
-      "description": "Companion (third party, MIT, by Cursor): playbook-routed agent workflows. /pstack:poteto-mode takes a goal and a checkable done condition and runs the right playbook (investigation, bug fix, feature, refactor, perf, overnight runs) with evidence, plus named principles to steer with, a decision log, unslop, no-comments, tdd and a benchmark checklist. Installed from the Claude Code build inside cursor/plugins; dimi does not maintain it.",
-      "category": "companion",
-      "tags": [
-        "companion",
-        "playbooks",
-        "principles",
-        "overnight",
-        "evidence"
-      ]
-    },
-    {
-      "name": "cursor-team-kit",
-      "source": {
-        "source": "git-subdir",
-        "url": "cursor/plugins",
-        "path": "cursor-team-kit"
-      },
-      "description": "Companion (third party, MIT, by Cursor): team workflow skills, among them thermo-nuclear-code-quality-review (an unusually strict maintainability review: code-judo simplifications, branching growth, files past 1,000 lines, thin wrappers, casts, logic in the wrong layer), deslop, verify-this, fix-ci, loop-on-ci, review-and-ship, make-pr-easy-to-review, what-did-i-get-done and weekly-review. Written for Cursor; it has no Claude Code manifest, so Claude Code loads its skills/ and agents/ directly and ignores its Cursor rules. dimi does not maintain it.",
-      "category": "companion",
-      "tags": [
-        "companion",
-        "code-quality",
-        "review",
-        "ci",
-        "shipping"
       ]
     }
   ]
