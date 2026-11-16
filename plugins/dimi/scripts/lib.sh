@@ -126,8 +126,8 @@ LOCAL_STATE_RE='^\.claude/(\.cache|worktrees)/'
 NEVER_DUMP_RE='(^|/)\.env(\.|$)|(^|/)\.(npmrc|netrc|pypirc|pgpass)$|(^|/)id_(rsa|dsa|ecdsa|ed25519)|(^|/)credentials|\.(pem|key|p12|pfx|jks|keystore|kdbx|tfstate|sqlite|sqlite3|db|dump|bak)$|\.tfstate\.backup$|storageState|(^|/)\.auth/|^\.claude/\.cache/'
 
 # git_diff <args…>: git diff in a fixed, parseable format whatever the user's config (paths unquoted, a/ b/
-# prefixes, no colour, no external diff tool).
-git_diff() { git -c core.quotePath=false -c diff.noprefix=false -c diff.mnemonicPrefix=false -c color.ui=never diff --no-color --no-ext-diff "$@"; }
+# prefixes, no colour, no external diff tool, no core.autocrlf "LF will be replaced by CRLF" warnings on stderr).
+git_diff() { git -c core.quotePath=false -c core.safecrlf=false -c diff.noprefix=false -c diff.mnemonicPrefix=false -c color.ui=never diff --no-color --no-ext-diff "$@"; }
 
 # change_diff <base>: the whole change against <base> — committed, staged, unstaged and untracked — as one
 # diff, run from the top level. Untracked files join through a throwaway index (git add -N), never the real one;
