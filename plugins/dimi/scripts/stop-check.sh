@@ -11,8 +11,9 @@
 #   (a) exits immediately if it already blocked once this turn (stop_hook_active),
 #   (b) exits if nothing changed vs the default branch,
 #   (c) caches a signature of the working tree and skips when the last passing check covered it.
-# Never blocks on missing tooling: a package manager or linter that is not installed is reported once
-# as a systemMessage and the gate is skipped for that check.
+# Never blocks on missing tooling: a package manager or linter that is not installed, a package whose
+# dependencies are not installed (no node_modules), or a script whose command is missing (exit 127, or
+# cmd.exe's "is not recognized" on Windows) is reported once as a systemMessage and that check is skipped.
 # Portable: works with GNU coreutils and stock macOS (no GNU timeout / sha1sum / xargs -d required).
 # Reads JSON with jq, python3 or node (scripts/lib.sh json_get). With none of them the stop_hook_active loop
 # breaker cannot be read, so the gate exits 0.
@@ -150,6 +151,21 @@ pkg_manager() { # <package dir relative to the repo root>
   for pm in pnpm npm yarn bun; do if command -v "$pm" >/dev/null 2>&1; then echo "$pm"; return; fi; done
   echo npm
 }
+# deps_installed <pkg dir>: a node_modules folder (or a Yarn Plug'n'Play loader) in the package or a parent up to the
+# repo top. Without one the typecheck script cannot find its compiler, which is a setup gap, not a type error.
+deps_installed() {
+  local d="$1"
+  while :; do
+    [ -d "$d/node_modules" ] || [ -f "$d/.pnp.cjs" ] || [ -f "$d/.pnp.js" ] && return 0
+    [ "$d" = "." ] || [ "$d" = "/" ] && return 1
+    d=$(dirname "$d")
+  done
+}
+# not_found_output <output>: the run failed because a command is missing. POSIX shells exit 127, but on Windows
+# npm runs scripts through cmd.exe, which prints "is not recognized as an internal or external command" and exits 1.
+not_found_output() { printf '%s\n' "$1" | grep -qiE 'is not recognized as an internal or external command'; }
+# not_found_line <output>: the line that names the missing command (npm prints its own error lines after it), else the last line.
+not_found_line() { printf '%s\n' "$1" | grep -v '^> ' | grep -iE 'is not recognized as an internal|command not found|: not found' | head -1 | grep . || printf '%s\n' "$1" | tail -1; }
 TIMED_OUT=""
 TS_FILES=$(printf '%s\n' "$CHANGED" | grep -E '\.(ts|tsx)$' || true)
 if [ -n "$TS_FILES" ] && [ -n "$TYPECHECK_SCRIPT" ]; then
@@ -171,10 +187,11 @@ if [ -n "$TS_FILES" ] && [ -n "$TYPECHECK_SCRIPT" ]; then
       OWN_S=$(( TYPECHECK_BUDGET_S - ($(date +%s) - START) )); LEFT_S=$(within_deadline "$OWN_S")
       if [ "$OWN_S" -le 0 ]; then add_skipped "typecheck in $d (other packages used the ${TYPECHECK_BUDGET_S}s typecheck budget; it runs again after the next edit)"; continue; fi
       if [ "$LEFT_S" -le 0 ]; then timed_out "$d" "typecheck in $d" "$LEFT_S" "$OWN_S"; continue; fi
+      if ! deps_installed "$d"; then add_skipped "typecheck in $d (dependencies not installed: run $PM install)"; continue; fi
       CMD="cd '$d' && $PM run $TYPECHECK_SCRIPT"
       OUT=$(run_with_timeout "$LEFT_S" "$CMD" 2>&1); RC=$?
       if [ $RC -eq 124 ]; then timed_out "$d" "typecheck in $d" "$LEFT_S" "$OWN_S"
-      elif [ $RC -eq 127 ]; then add_skipped "typecheck in $d (command not found: $(printf '%s\n' "$OUT" | tail -1 | head -c 120))"
+      elif [ $RC -eq 127 ] || not_found_output "$OUT"; then add_skipped "typecheck in $d (command not found: $(not_found_line "$OUT" | head -c 120))"
       elif [ $RC -ne 0 ]; then add_reason "Typecheck failed in $d: $CMD (last 40 lines)" "$(printf '%s\n' "$OUT" | tail -40)"; HARD_FAIL=1
       fi
     done <<< "$RUNNABLE"
@@ -186,7 +203,7 @@ if [ -n "$TS_FILES" ] && [ -n "$TYPECHECK_SCRIPT" ]; then
     else
       OUT=$(run_with_timeout "$LEFT_S" "cd $(printf "'%s'" "$PROJ_DIR") && $TYPECHECK_FALLBACK" 2>&1); RC=$?
       if [ $RC -eq 124 ]; then timed_out repo "typecheck fallback" "$LEFT_S" "$TYPECHECK_BUDGET_S"
-      elif [ $RC -eq 127 ]; then add_skipped "typecheck fallback (command not found)"
+      elif [ $RC -eq 127 ] || not_found_output "$OUT"; then add_skipped "typecheck fallback (command not found)"
       elif [ $RC -ne 0 ]; then add_reason "Typecheck failed: $TYPECHECK_FALLBACK (last 40 lines)" "$(printf '%s\n' "$OUT" | tail -40)"; HARD_FAIL=1
       fi
     fi
