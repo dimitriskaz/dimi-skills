@@ -28,7 +28,7 @@ claude plugin install dimi@dimi-skills --scope user       # follows you to every
 claude plugin install dimi@dimi-skills --scope project    # team repositories: commit enabledPlugins so collaborators get it (see templates/project-claude)
 ```
 
-Install at **user** scope by default. Use **project** scope in team repositories where everyone should get the same gate — and copy `templates/project-claude/` in too, because a plugin cannot carry permissions or `.claude/rules/`. The repository is private, so your machine needs GitHub access to it (for example through `gh auth login`). Cloud sessions do not load plugins; install and use it from the terminal, VS Code or the desktop app.
+Install at **user** scope by default. Use **project** scope in team repositories where everyone should get the same gate — and copy `templates/project-claude/` in too, because a plugin cannot carry permissions or `.claude/rules/`. The repository is public, so no GitHub login is needed to add the marketplace. Cloud sessions do not load plugins; install and use it from the terminal, VS Code or the desktop app.
 
 ### Updates and pinning
 
